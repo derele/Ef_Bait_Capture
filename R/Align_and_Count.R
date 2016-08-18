@@ -85,7 +85,7 @@ MM <- 10
 FC <-get(paste("FC_", MM, sep=""))
 ############
 countsDF <- FC$counts
-colnames(countsDF) <- paste("Lib_",substr(colnames(countsDF),51,56),sep="") # shorten names 
+colnames(countsDF) <- paste("Lib_",substr(colnames(countsDF),67,72),sep="") # shorten names 
 libraries <- 1:10 ; coverage <- 1:100 ##
 tabcountcov <- matrix(, nrow = 10, ncol = 100)
 for (l in libraries){
