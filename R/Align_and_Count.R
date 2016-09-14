@@ -1,4 +1,4 @@
-setwd("~/Eimeria_Wild_coding/Bait_capture/")
+setwd("~/Ef_Bait_Capture/R/Results")
 library(Rsubread)
 library(reshape)
 library(ggplot2)
@@ -48,44 +48,73 @@ if(file.exists("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments/
 })}
 
 ## Create the featurecounts objects
-bams_10<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments/",
+bams_10<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
                   pattern="10.BAM$", full.names=TRUE)
 FC_10<- featureCounts(bams_10,annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
                     isGTFAnnotationFile=TRUE, GTF.featureType = "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id",
                     allowMultiOverlap=TRUE,## important to allow reads to map multiple baits
                     isPairedEnd=TRUE,reportReads=TRUE,nthreads=20)
-bams_20<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments/",
+
+bams_20<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
                   pattern="20.BAM$", full.names=TRUE)
 FC_20<- featureCounts(bams_20,annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
                     isGTFAnnotationFile=TRUE, GTF.featureType = "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id",
                     allowMultiOverlap=TRUE,## important to allow reads to map multiple baits
                     isPairedEnd=TRUE,reportReads=TRUE,nthreads=20)
-bams_30<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments/",
+
+bams_30<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
                   pattern="30.BAM$", full.names=TRUE)
 FC_30<- featureCounts(bams_30,annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
                     isGTFAnnotationFile=TRUE, GTF.featureType = "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id",
                     allowMultiOverlap=TRUE,## important to allow reads to map multiple baits
                     isPairedEnd=TRUE,reportReads=TRUE,nthreads=20)
-bams_50<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments/",
+
+bams_50<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
                   pattern="50.BAM$", full.names=TRUE)
 FC_50<- featureCounts(bams_50,annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
                     isGTFAnnotationFile=TRUE, GTF.featureType = "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id",
                     allowMultiOverlap=TRUE,## important to allow reads to map multiple baits
                     isPairedEnd=TRUE,reportReads=TRUE,nthreads=20)
-bams_70<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments/",
+
+bams_70<- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
                   pattern="70.BAM$", full.names=TRUE)
 FC_70<- featureCounts(bams_70,annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
                     isGTFAnnotationFile=TRUE, GTF.featureType = "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id",
                     allowMultiOverlap=TRUE,## important to allow reads to map multiple baits
                     isPairedEnd=TRUE,reportReads=TRUE,nthreads=20)
 
-## First look into the data
-## Define mismatches max
+                                        # I. First look into the data
+
+## make a loop for all mismatches !!!!
+
 MM <- 10
 FC <-get(paste("FC_", MM, sep=""))
-############
+
+## 1- calculate proportion assigned to baits
+assigned <- as.numeric(sapply(FC$stat, "[[", 1))
+total <- 0
+for (i in 1 : 11) {
+    t <- as.numeric(sapply(FC$stat, "[[", i))
+    total <- total +t}
+propassigned <- assigned/total*100 ; propassigned <- propassigned[-1]
+
+## 2- names of the samples
+names <- substr(FC$targets, 82,87)
+
+## 3- proportion mapped to the genome
+propomapped <- propmapped(FC)
+
+
+
+
+## create a DF
+DF_summary <- as.data.frame(names,propassigned,propomapped)
+
+
+
+                                        # II. Observe the counts of assigned baits / lib depending of wanted coverage min per bait
 countsDF <- FC$counts
-colnames(countsDF) <- paste("Lib_",substr(colnames(countsDF),67,72),sep="") # shorten names 
+colnames(countsDF) <- paste("Lib_",substr(colnames(countsDF),82,87),sep="") # shorten names
 libraries <- 1:10 ; coverage <- 1:100 ##
 tabcountcov <- matrix(, nrow = 10, ncol = 100)
 for (l in libraries){
@@ -95,44 +124,43 @@ colnames(tabcountcov) <- as.character(1:100)
 df <- melt(tabcountcov[,c(1,2,5,10,15,20,30,50,100)]); names(df) <- c("nLib","cov","nBaits")
 ggplot(data=df, aes(x=nLib, y=nBaits, group=cov)) + geom_line(aes(color=factor(cov))) + scale_color_discrete(name="Divers levels\nof coverage") + ggtitle(paste(as.character(MM),"mismatches maximum allowed in the alignment"))
 
-##Plot a heatmap
+                                        # III. Plot a heatmap of the "cool" baits
 table(rowSums(countsDF)>500)
-rowSums(countsDF)>500
-
-countsDF[grepl("apico", rownames(countsDF)),]
+#countsDF[grepl("apico", rownames(countsDF)),]
 
 pheatmap(log10(countsDF[rowSums(countsDF)>500,]+0.1))
 ##pheatmap(log10(countsDF[rowSums(countsDF)>50,]+0.1))
 ##pheatmap(log10(countsDF[rowSums(countsDF)>10,]+0.1))
 
-## Plot correlation heatmap + pairwise coef [adapted from http://www.sthda.com/english/wiki/ggplot2-quick-correlation-matrix-heatmap-r-software-and-data-visualization]
-create_heatmap_correl <- function(mydata){
-    cormat <- round(cor(mydata),2)# I.Compute the correlation matrix
-    get_upper_tri <- function(cormat){# II.Get upper triangle of the correlation matrix
-        cormat[lower.tri(cormat)]<- NA; return(cormat)}
-    upper_tri <- get_upper_tri(cormat)
-    melted_cormat <- na.omit(melt(upper_tri))# II.Melt the correlation matrix
-    ggplot(data = melted_cormat, aes(X2,X1, fill = value))+ # IV.Plot
-        geom_tile(color = "white")+
-        scale_fill_gradient2(low = "blue", high = "red",
-                             mid = "white",midpoint = 0,
-                             limit = c(-1,1), space = "Lab",
-                             name="Pearson\nCorrelation") +
-        theme_minimal()+
-        theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1))+
-        coord_fixed()+ geom_text(aes(X2, X1, label = value),
-                                 color = "black", size = 4) +  #Add correlation coefficients on the heatmap
-        theme(axis.title.x = element_blank(),
-              axis.title.y = element_blank(),
-              panel.grid.major = element_blank(),
-              panel.border = element_blank(),
-              panel.background = element_blank(),
-              axis.ticks = element_blank(),
-              legend.justification = c(1, 0),
-              legend.position = c(0.6, 0.7),
-              legend.direction = "horizontal")+
-        guides(fill = guide_colorbar(barwidth = 7, barheight = 1,title.position = "top", title.hjust = 0.5)) }
 
-create_heatmap_correl(countsDF[!grepl("apico|mito", rownames(countsDF)),])
+                                        # Bonus
+## ## Plot correlation heatmap + pairwise coef [adapted from http://www.sthda.com/english/wiki/ggplot2-quick-correlation-matrix-heatmap-r-software-and-data-visualization]
+## create_heatmap_correl <- function(mydata){
+##     cormat <- round(cor(mydata),2)# I.Compute the correlation matrix
+##     get_upper_tri <- function(cormat){# II.Get upper triangle of the correlation matrix
+##         cormat[lower.tri(cormat)]<- NA; return(cormat)}
+##     upper_tri <- get_upper_tri(cormat)
+##     melted_cormat <- na.omit(melt(upper_tri))# II.Melt the correlation matrix
+##     ggplot(data = melted_cormat, aes(X2,X1, fill = value))+ # IV.Plot
+##         geom_tile(color = "white")+
+##         scale_fill_gradient2(low = "blue", high = "red",
+##                              mid = "white",midpoint = 0,
+##                              limit = c(-1,1), space = "Lab",
+##                              name="Pearson\nCorrelation") +
+##         theme_minimal()+
+##         theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1))+
+##         coord_fixed()+ geom_text(aes(X2, X1, label = value),
+##                                  color = "black", size = 4) +  #Add correlation coefficients on the heatmap
+##         theme(axis.title.x = element_blank(),
+##               axis.title.y = element_blank(),
+##               panel.grid.major = element_blank(),
+##               panel.border = element_blank(),
+##               panel.background = element_blank(),
+##               axis.ticks = element_blank(),
+##               legend.justification = c(1, 0),
+##               legend.position = c(0.6, 0.7),
+##               legend.direction = "horizontal")+
+##         guides(fill = guide_colorbar(barwidth = 7, barheight = 1,title.position = "top", title.hjust = 0.5)) }
 
-#create_heatmap_correl(countsDF)
+## create_heatmap_correl(countsDF[!grepl("apico|mito", rownames(countsDF)),])
+##create_heatmap_correl(countsDF)
