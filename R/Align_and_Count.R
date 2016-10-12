@@ -120,15 +120,7 @@ df <- counts10[-c(1,2)]
 mymat <- as.matrix(df)
 rownames(mymat) <- NamesB
 
-
-
-## 1 -> baits with at least a sum of coverage of 500 for all the libraries
-
-pheatmap(mymat[rowSums(mymat)>500,])
-
-
-help(pheatmap)
-table(rowSums(counts10[3:l])>500)
-#countsDF[grepl("apico", rownames(countsDF)),]
-
-pheatmap(log10(countsDF[rowSums(countsDF)>500,]+0.1))
+## Baits with at least a sum of coverage of 500 for all the libraries
+pdf("Fig_heatmap500.pdf",paper="a4")
+pheatmap(log10(mymat[rowSums(mymat)>500,]+0.1))
+dev.off()
