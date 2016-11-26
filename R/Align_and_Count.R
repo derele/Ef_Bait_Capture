@@ -18,7 +18,8 @@ if(!file.exists("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_genome_re
 ## II. List our _dereplicated_ files (see tally in bash notes). 
 FilesR1 <- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated",
                       pattern="R1_001.fastq.unique.gz$", full.names=TRUE)
-FilesR2 <- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated",
+FilesR2 <- list.files(path = "/SAN/Alices_sandpit/sequencing_data_
+ed",
                       pattern="R2_001.fastq.unique.gz$", full.names=TRUE)
 ## erase "Undetermine" library
 FilesR1 <- FilesR1[-19];FilesR2 <- FilesR2[-19]
@@ -48,8 +49,30 @@ theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V
                        isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
                        GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
 
+#################################
+## FeactureCount with a bam from bed from psl from BLAT
+
+setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/PslDnax/")
+# import psl output of blat
+mytab <- read.table("2TRAnna_S16_R1_001.unique.dnax.psl", skip=5)
+names(mytab) <- c("matches", "misMatches", "repMatches", "nCount", "qNumInsert", "qBaseInsert","tNumInsert", "tBaseInsert",
+                  "strand", "qName","qSize", "qStart","qEnd", "tName", "tSize", "tStart","tEnd", "blockCount",
+                  "blockSizes", "qStarts", "tStarts")
+head(mytab)
+####
+
+
+
+
+featureCounts("../All_alignment_Blat/2TRAnna_S16_R1_001.unique.dnax.bam",
+              annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
+              isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
+              GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
+
+
 
 #################################
+
 ## V. FeatureCounts with a GTF that contains genomeoffbaits + mito + api + baits
 ## V.1. Prepare the good GTF
 
@@ -122,34 +145,26 @@ sapply(Fullbaitsfinal, function(x) sum(is.na(x)))
 
 ## Export my GTF file
 write.table(x=Fullbaitsfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
-
 ########################################
-   
-### Create the featurecounts objects and save them as tab-delimited file which includes identifier, length and counts for each bait in each library + a stat table with the summary of assigned and mapped baits
-for (MM <- NA){
-    thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
-                          pattern=paste("_",MM,"onlyGenome.BAM$",sep=""), full.names=TRUE)
-    theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
-   
-    write.table(x=data.frame(theFC$annotation[,c("GeneID","Length")],theFC$counts,stringsAsFactors=FALSE),file=paste("counts_onlyGenome_",MM,".txt",sep=""),quote=FALSE,sep="\t",row.names=FALSE,col.names=c("BaitID", "LengthBait", paste("Lib",substr(names(theFC$stat[-1]),82,87), sep="_")))
-    write.table(x=theFC$stat, file=paste("stats_onlyGenome_",MM,".txt", sep=""))}
-#########
 
-## Load the stat files, results from featureCounts
-for (MM in c(0,1,10,30)){
-    stat <- read.table(paste("stats_",MM,".txt", sep=""), header=TRUE)
-    temp <- stat[-1]
-    names(temp) <- paste("Lib_",substr(names(stat[-1]),82,87),sep="")
-    stat <- data.frame(stat[1],temp)
-    mynameis <- paste("stat",MM,sep="")
-    assign(mynameis,stat)}
-       
-## Load the tab delimited files, results from featureCounts
-for (MM in c(0,1,10,30)){
-    counts <- read.table(paste("counts_",MM,".txt", sep=""), header=TRUE)
-    counts <- counts[-ncol(counts)]
-    mynameis <- paste("counts",MM,sep="")
-    assign(mynameis,counts)}
+## Execute the featureCount with this new GTF
+for (MM in c(0,1,3,10,30,40,50,70)){
+
+MM <- 0
+    thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
+                          pattern=paste("_",MM,".BAM$",sep=""), full.names=TRUE)
+    theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
+    theFC2 <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
+    
+
+
+
+
+    theFC2$stat$X.SAN.Alices_sandpit.sequencing_data_dereplicated.All_alignments_Rsubread_align..2672Single_S17_R1_001.fastq.unique.gz_0onlyGenome.BAM
+    theFC$stat$X.SAN.Alices_sandpit.sequencing_data_dereplicated.All_alignments_Rsubread_align..2672Single_S17_R1_001.fastq.unique.gz_0onlyGenome.BAM
+    
+
+
 
 ## Make a tab summarizing
 Mymat <- cbind(stat0,stat1,stat10,stat30)

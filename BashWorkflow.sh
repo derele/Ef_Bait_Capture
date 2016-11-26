@@ -17,16 +17,6 @@ awk '{if($1==c) {i++} else {i=1} ;c=$1; print $0 "_" i}' MYbaits_Eimeria_V1.sing
 most MYbaits_Eimeria_V1.single120_feature_counted.gff   # visualize
 mv filetemp filefinal   #change name
 
-##########################
-##Transform a GFF to GTF##
-##########################
-# Same, apart from the 9th field:
-# Suppress 9th column !!!! TAB SEP FIELDS
-awk -v OFS='\t' '{$9=""; print $0}' MYbaits_Eimeria_V1.single120_feature_counted.gff > temporaryAlice.gtf
-#Remove the first 3 lines and change the file
-awk '{if(NR>3)print $0 "gene_id " "\"" $1 "\"" "; " "transcript_id " "\"" $1 "\"" ";"}' temporaryAlice.gtf > MYbaits_Eimeria_V1.single120_alicechange.gtf
-##########################
-
 # remove files by part of name:
 find | grep prpm | xargs rm -f
 #1- Find the files in the current directory beginning by Alignments.
@@ -46,9 +36,28 @@ grep "Assigned" Alignments.Alignment_pattern.featureCounts >> summaryFeatureCoun
 
 python --version # check the version of python
 
-##############################
-## part 1 : Align and count ##
-##############################
+# Change names of extensions
+for file in *.bam.sam; do mv "$file" "`basename "$file" .bam.sam`.sam"; done  
+
+# Find rank of Efab_
+grep ">" /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa | grep -n "25398";
+
+# number of characters in fasta file :
+wc -m < /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa
+
+##########################
+##Transform a GFF to GTF##
+##########################
+# Same, apart from the 9th field:
+# Suppress 9th column !!!! TAB SEP FIELDS
+awk -v OFS='\t' '{$9=""; print $0}' MYbaits_Eimeria_V1.single120_feature_counted.gff > temporaryAlice.gtf
+#Remove the first 3 lines and change the file
+awk '{if(NR>3)print $0 "gene_id " "\"" $1 "\"" "; " "transcript_id " "\"" $1 "\"" ";"}' temporaryAlice.gtf > MYbaits_Eimeria_V1.single120_alicechange.gtf
+##########################
+
+####################
+## part 1 : ALIGN ##
+####################
 
 # step 1 : Dereplicate with Tally
 tally -i out1.gz -j out2.gz -o out1.unique.gz -p out2.unique.gz --pair-by-offset
@@ -57,54 +66,44 @@ ls | grep "fastq.unique."
 # Put all the files with a commun name in a folder
 mv -t Dereplicated  `ls|grep "fastq.unique."`
 
+## At one point : check quality more formaly
+
 # step 2 : Align and Count
-## cf R file /home/alice/Ef_Bait_Capture/R/Align_and_Count.R
 
-# step 2.2 : make a new alignment with blat (with dna and dnax) & store in /Blat_Dna and /Blat_Dnax
-# put the fasta files with sufficient sequences into /All_alignment_Blat/
+## --> FIRST ALIGNER TESTED : Rsubread:align (cf R file /home/alice/Ef_Bait_Capture/R/Align_and_Count.R)
 
-# find *unique.fasta.fa | parallel blat ./Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
-# Non parallel :
+## --> SECOND ALIGNER TESTED : Blat (with dna and dnax) & store in /Blat_Dna and /Blat_Dnax
 
 cd /SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/
+##### Done: 2808Do and 2848Si
+## Running : 2672Si, 2807Di, 2807Si
+time find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
+time find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
 
-##### Turning: 2808Do and 2848Si
-find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
-find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
+## Transform pls > bed > sam/bam:
+## Keep best hit in the .psl
+for file in *Dnax.psl; do perl /tools/trinityrnaseq-Trinity-v2.3.2/util/misc/blat_util/blat_top_hit_extractor.pl "$file" > "`basename "$file" Dnax.psl`Dnax_trinity.psl"; done
 
-#### step 2.3 : Transform pls > bed > sam/bam
+# pslToBed input.psl input.bed
+for file in *_trinity.psl; do /home/alice/pslToBed "$file" "`basename "$file" _trinity.psl`.bed"; done
 
-# psl2bed
-psl2bed < 2848Single_S18_R1_blatDnax.psl > 2848Single_S18_R1_blatDnax.bed #ok
-
-for file in *.psl; do psl2bed < "$file" > "`basename "$file" .psl`.bed"; done
-
-# make a .genome file for bed2ba
+# make a .genome file
 ## cat /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > Efal_mtapi.genome #ok
 
-# bedtobam
-bedToBam -i 2848Single_S18_R1_blatDnax.bed -g ../Efal_mtapi.genome > 2848Single_S18_R1_blatDnax.bam #ok
+# bedtools bedtobam -bed12 -i input.bed -g hg38.chrom.sizes > output.bam
+for file in *.bed; do bedtools bedtobam -bed12 -i "$file" -g ../Efal_mtapi.genome > "`basename "$file" .bed`.bam"; done
 
-bedToBam -i 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDna.bed -g ../Efal_mtapi.genome > 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDna.bam
-bedToBam -i 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDna.bed -g ../Efal_mtapi.genome > 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDna.bam
-bedToBam -i 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDna.bed -g ../Efal_mtapi.genome > 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDna.bam
-bedToBam -i 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDna.bed -g ../Efal_mtapi.genome > 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDna.bam
+# samtools view output.bam > output.sam
+for file in *.bam; do samtools view "$file" > "`basename "$file" .bam`.sam"; done
 
-bedToBam -i 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDnax.bed -g ../Efal_mtapi.genome > 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDnax.bam
-bedToBam -i 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDnax.bed -g ../Efal_mtapi.genome > 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDnax.bam
-bedToBam -i 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDnax.bed -g ../Efal_mtapi.genome > 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDnax.bam
-bedToBam -i 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDnax.bed -g ../Efal_mtapi.genome > 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDnax.bam
+## --> ALIGNER TO TEST : Bowtie, Bwa at first
+## Compare the TIME needed to align (i) and the RESULTS (ii)
 
-# visualize
-samtools view 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDna.bam > 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDna.sam
-samtools view 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDna.bam > 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDna.sam
-samtools view 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDna.bam > 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDna.sam
-samtools view 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDna.bam > 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDna.sam
+####################
+## part 2 : COUNT ##
+####################
 
-samtools view 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDnax.bam > 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDnax.sam
-samtools view 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDnax.bam > 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDnax.sam
-samtools view 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDnax.bam > 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDnax.sam
-samtools view 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDnax.bam > 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDnax.sam
+## NB : let's do it via R, and create a table directly from it... Here are some comparison
 
 # Count the proportion of reads mapped to the reference genome
 cat file.sam | cut –f3 | sort | uniq | wc -l > Nm # number of reads in the alignment
@@ -174,17 +173,6 @@ zcat ../../2808Double_S5_R2_001.fastq.unique.gz | echo $((`wc -l`/4))
 
 
 
-
-## BONUS ##
-
-# Change names of extensions
-for file in *.bam.sam; do mv "$file" "`basename "$file" .bam.sam`.sam"; done  
-
-# Find rank of Efab_
-grep ">" /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa | grep -n "25398";
-
-# number of characters in fasta file :
-wc -m < /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa
 
 ##########################################
 ## part 2 : de novo metagenome assembly ##
