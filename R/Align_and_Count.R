@@ -7,6 +7,35 @@ library(gridExtra)
 library("Biostrings")
 ######################################
 
+## FeactureCount with a sam from BLAT alignment 80% similitude nucleotide level
+## --> Is it trustable? The manual says 95%, we set up manually 80%
+setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/GOOD/")
+
+SamsR1 <- list.files(pattern="R1_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
+SamsR2 <- list.files(pattern="R2_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
+
+## Idea : FC with baits + off-target
+
+F1_R1 <- featureCounts(SamsR1,
+              annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
+              isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
+              GTF.attrType="bait_id", allowMultiOverlap=TRUE,
+              isPairedEnd=FALSE, countMultiMappingReads=FALSE)
+F1_R2 <- featureCounts(SamsR2,
+              annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
+              isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
+              GTF.attrType="bait_id", allowMultiOverlap=TRUE,
+              isPairedEnd=FALSE, countMultiMappingReads=FALSE)
+
+
+#################################
+
+
+
+
+
+##################### Old : (align by Rsubread:align may be not good enough)
+
 ## I. built an index (hash table) for read mapping 
 if(!file.exists("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi_reference_index.files")){
     buildindex(basename="/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi_reference_index",
@@ -48,28 +77,6 @@ thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All
 theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
                        isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
                        GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
-
-#################################
-## FeactureCount with a bam from bed from psl from BLAT
-
-setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/PslDnax/")
-# import psl output of blat
-mytab <- read.table("2TRAnna_S16_R1_001.unique.dnax.psl", skip=5)
-names(mytab) <- c("matches", "misMatches", "repMatches", "nCount", "qNumInsert", "qBaseInsert","tNumInsert", "tBaseInsert",
-                  "strand", "qName","qSize", "qStart","qEnd", "tName", "tSize", "tStart","tEnd", "blockCount",
-                  "blockSizes", "qStarts", "tStarts")
-head(mytab)
-####
-
-
-
-
-featureCounts("../All_alignment_Blat/2TRAnna_S16_R1_001.unique.dnax.bam",
-              annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
-              isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
-              GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
-
-
 
 #################################
 
