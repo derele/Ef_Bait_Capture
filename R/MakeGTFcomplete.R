@@ -10,14 +10,17 @@ library(stringr)
 
 ## Make a GTF that contains genomeoffbaits + mito + api + baits :
 
-## load the Genome + api + mito
-fastaFile <- readDNAStringSet("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa")
+## load the Genome
+fastaFile <- readDNAStringSet("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_genome.fa")
 seq_name = names(fastaFile)
 sequence = paste(fastaFile)
 df <- data.frame(seq_name, sequence)
 
 ## load the baits
-baits <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf")
+baitstot <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf")
+
+## !! Remove api and mito, back at the end!!
+baits <- baitstot[-c(nrow(baitstot),nrow(baitstot)-1),]
 
 ## get the contigs names
 Contigs <- as.character(df$seq_name)
@@ -46,11 +49,8 @@ Fullbaits <- rbind(baits,Offbaits)
 
 ## Reorder "baits"
 
-## !! Not api and mito, back later!!
-baits2 <- baits[-c(nrow(baits),nrow(baits)-1),]
-
 ## extract the contig number in 1 column
-baits2 <- cbind(baits2, str_split_fixed(baits2$V1, "_", 2))
+baits2 <- cbind(baits, str_split_fixed(baits$V1, "_", 2))
 colnames(baits2)[15] <- "num"
 baits2$num <- as.numeric(as.character(baits2$num))
 
@@ -98,7 +98,7 @@ Offbaits2 <- data.frame(mydata$baits2.V1.1, "rtracklayer",
 names(Offbaits2) <- names(Fullbaits)
 
 Fullbaitsfinal <- rbind(Fullbaits,Offbaits2,
-                        baits[nrow(baits),], baits[nrow(baits)-1,])
+                        baitstot[nrow(baitstot),], baitstot[nrow(baitstot)-1,])
 ## NB : add the mito and api that I delete earlier for counting reasons
 
 # Check for NAs?

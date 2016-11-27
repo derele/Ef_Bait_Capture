@@ -1,4 +1,3 @@
-setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_ResultsCode/")
 library(Rsubread)
 library(reshape)
 library(ggplot2)
@@ -6,29 +5,74 @@ library(pheatmap)
 library(gridExtra)
 library("Biostrings")
 ######################################
+## FUNCTIONS ##
 
-## FeactureCount with a sam from BLAT alignment 80% similitude nucleotide level
+########### Create a function calculating the count of features ###########
+MyfeatureCounts <- function(SamFiles, pairornot, multoverlapornot){
+    return(featureCounts(SamFiles,
+                         annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf",
+                         isGTFAnnotationFile=TRUE,
+                         GTF.featureType= "sequence_feature",
+                         useMetaFeatures=FALSE,
+                         GTF.attrType="bait_id",
+                         allowMultiOverlap=multoverlapornot,
+                         isPairedEnd=pairornot,
+                         countMultiMappingReads=FALSE)
+           )
+    }
+
+########### Create a tab with the info of the mapped reads positions ###########
+
+makemytab <- function(df){
+    mito <- df[grepl("mito_only_1", rownames(df)),]
+    api <- df[grepl("apico_only_1", rownames(df)),]
+    ## Remove apico and mito lines
+    dfnucl <- df[-c(nrow(df),nrow(df)-1),]
+    ## Count the sum of the off target sequences
+    Efal_genome_Off_Target <- colSums(dfnucl[grepl("Off", rownames(dfnucl)),])
+    Efal_genome_On_Target <- colSums(dfnucl[!grepl("Off", rownames(dfnucl)),])
+    ## Create tab
+    BigTab <- data.frame(Efal_genome_On_Target,Efal_genome_Off_Target,mito, api)
+    BigTab$TotalAligned <- rowSums(BigTab)
+    BigTab$not_aligned <- NA
+    ## Rename human friendly style
+    rownames(BigTab) <- substr(sub("_00.*.","", rownames(BigTab)),3,20)
+    BigTab$libraries <- rownames(BigTab)
+    return(BigTab)
+}
+
+######################################
+
+## I. FeactureCount with a sam from BLAT alignment 80% similitude nucleotide level
 ## --> Is it trustable? The manual says 95%, we set up manually 80%
 setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/GOOD/")
-
 SamsR1 <- list.files(pattern="R1_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
 SamsR2 <- list.files(pattern="R2_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
 
-## Idea : FC with baits + off-target
+F1_R1 <- MyfeatureCounts(SamsR1, FALSE, TRUE)
+F1_R2 <- MyfeatureCounts(SamsR2, FALSE, TRUE)
 
-F1_R1 <- featureCounts(SamsR1,
-              annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
-              isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
-              GTF.attrType="bait_id", allowMultiOverlap=TRUE,
-              isPairedEnd=FALSE, countMultiMappingReads=FALSE)
-F1_R2 <- featureCounts(SamsR2,
-              annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf",
-              isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE,
-              GTF.attrType="bait_id", allowMultiOverlap=TRUE,
-              isPairedEnd=FALSE, countMultiMappingReads=FALSE)
+TabFinal <- rbind(makemytab(F1_R1$count),makemytab(F1_R2$count))
+rn <- rownames(TabFinal)
+TabFinal <- TabFinal[order(rn), ]
 
+write.table(x=TabFinal, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.csv", quote=FALSE)
+
+### TO ADD : total numbr of reads cf fasta dereplicated file + not aligned
+
+### Some visualisation :
+Tabplot <- melt(TabFinal, id=c("libraries","TotalAligned"))
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.pdf")
+myplot <-
+    ggplot(Tabplot, aes(x=libraries, y=value, fill=variable))+
+    geom_bar()
+dev.off()
+
+## NB : if Multipleoverlap not allowed, it's not comparable (one read can touch On and Off targets)
 
 #################################
+
+
 
 
 
@@ -80,79 +124,6 @@ theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V
 
 #################################
 
-## V. FeatureCounts with a GTF that contains genomeoffbaits + mito + api + baits
-## V.1. Prepare the good GTF
-
-## load the Genome
-fastaFile <- readDNAStringSet("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_genome.fa")
-seq_name = names(fastaFile)
-sequence = paste(fastaFile)
-df <- data.frame(seq_name, sequence)
-## load the baits
-baits <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf")
-
-## get the contigs names
-Contigs <- as.character(df$seq_name)
-
-## contigs NOT used for the baits design :
-ContigsOff <- setdiff(as.character(df$seq_name),levels(baits$V1))
-
-## get the length of these contigs :
-lengthContig <- nchar(as.character(df$sequence))
-
-## in a data frame :
-datcontig <- data.frame(Contigs, lengthContig)
-datcontig$Contigs <- as.character(datcontig$Contigs)
-
-## Phase 1: exclude the genes used for baits :
-datcontigOFF <- datcontig[!(datcontig$Contigs %in% levels(baits$V1)),]
-
-Offbaits <- data.frame(datcontigOFF$Contigs,"rtracklayer", "sequence_feature",0,datcontigOFF$lengthContig,".","+",".","gene_id",datcontigOFF$Contigs,";","bait_id",paste("Off_target_",seq(1:nrow(datcontigOFF)),sep=""))
-
-names(Offbaits) <- names(baits)
-
-Fullbaits <- rbind(baits,Offbaits)
-
-## Phase 2: add the piece without contigs, from contigs where baits where designed
-
-### Function to "Fill the Gaps" of the gff file
-
-mydata <- data.frame(NA,NA,NA)
-if (baits$V4[1]!=0) {
-    mydata <- data.frame(baits$V1[1],0, baits$V4[1])
-}
-for (i in 2:nrow(baits)) {
-    if (baits$V1[i]==baits$V1[i-1]) {
-        if (baits$V4[i] != baits$V5[i-1]+1) {
-            new <- data.frame(baits$V1[i],baits$V5[i-1]+1,baits$V4[i]-1)
-            names(new) <- names(mydata)
-            mydata <- rbind(mydata,new)
-        }
-    }
-    else {
-        if (baits$V4[i]!=0) {
-            new <- data.frame(baits$V1[i],0,baits$V4[i]-1)
-            names(new) <- names(mydata)
-            mydata <- rbind(mydata,new)
-        }
-    }
-}
-
-vec <- paste("Off_target_",
-             seq(from=(nrow(datcontigOFF)+1),to=(nrow(datcontigOFF) + nrow(mydata)) ),  sep="")
-
-Offbaits2 <- data.frame(mydata$baits.V1.1,"rtracklayer", "sequence_feature",mydata$X0, mydata$baits.V4.1., ".", "+", ".", "gene_id", mydata$baits.V1.1.,";","bait_id", vec)
-
-names(Offbaits2) <- names(Fullbaits)
-
-Fullbaitsfinal <- rbind(Fullbaits,Offbaits2)
-
-# Check for NAs?
-sapply(Fullbaitsfinal, function(x) sum(is.na(x)))
-
-## Export my GTF file
-write.table(x=Fullbaitsfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
-########################################
 
 ## Execute the featureCount with this new GTF
 for (MM in c(0,1,3,10,30,40,50,70)){
@@ -162,15 +133,6 @@ MM <- 0
                           pattern=paste("_",MM,".BAM$",sep=""), full.names=TRUE)
     theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
     theFC2 <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
-    
-
-
-
-
-    theFC2$stat$X.SAN.Alices_sandpit.sequencing_data_dereplicated.All_alignments_Rsubread_align..2672Single_S17_R1_001.fastq.unique.gz_0onlyGenome.BAM
-    theFC$stat$X.SAN.Alices_sandpit.sequencing_data_dereplicated.All_alignments_Rsubread_align..2672Single_S17_R1_001.fastq.unique.gz_0onlyGenome.BAM
-    
-
 
 
 ## Make a tab summarizing
