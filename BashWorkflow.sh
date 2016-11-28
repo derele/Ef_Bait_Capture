@@ -76,27 +76,20 @@ mv -t Dereplicated  `ls|grep "fastq.unique."`
 
 cd /SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/
 ##### Done: 2808Do and 2848Si
-## Running : 2672Si, 2807Di, 2807Si
-time find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
+## Running : 2672Si, 2807Di, 2807Si : finished for DNA, DNAX running
 time find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
 
+## Done : the Anna's BLAT DNA
+## Running : Anna's BLAT DNAX
+cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
+find *Anna*fa
+time find *Anna*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
+time find *Anna*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDnax.psl
+
+########
 ## Transform pls > bed > sam/bam:
-cd /SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/GOOD/
-
-## Keep best hit in the .psl NB TIME CONSUMING!!
-time for file in *.psl; do perl /tools/trinityrnaseq-Trinity-v2.3.2/util/misc/blat_util/blat_top_hit_extractor.pl "$file" > "`basename "$file" .psl`_trinity.psl"; done
-
-# pslToBed input.psl input.bed
-for file in *_trinity.psl; do /home/alice/pslToBed "$file" "`basename "$file" _trinity.psl`.bed"; done
-
-# make a .genome file
-## cat /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > Efal_mtapi.genome #ok
-
-# bedtools bedtobam -bed12 -i input.bed -g hg38.chrom.sizes > output.bam
-for file in *.bed; do bedtools bedtobam -bed12 -i "$file" -g ../../Efal_mtapi.genome > "`basename "$file" .bed`.bam"; done
-
-# samtools view output.bam > output.sam
-for file in *.bam; do samtools view "$file" > "`basename "$file" .bam`.sam"; done
+## Usage : sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh
+########
 
 ## --> ALIGNER TO TEST : Bowtie, Bwa at first
 ## Compare the TIME needed to align (i) and the RESULTS (ii)

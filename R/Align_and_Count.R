@@ -8,21 +8,22 @@ library("Biostrings")
 ## FUNCTIONS ##
 
 ########### Create a function calculating the count of features ###########
-MyfeatureCounts <- function(SamFiles, pairornot, multoverlapornot){
+## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
+MyfeatureCounts <- function(SamFiles, paired_or_not, multiple_overlap_or_not) {
     return(featureCounts(SamFiles,
                          annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf",
                          isGTFAnnotationFile=TRUE,
                          GTF.featureType= "sequence_feature",
                          useMetaFeatures=FALSE,
                          GTF.attrType="bait_id",
-                         allowMultiOverlap=multoverlapornot,
-                         isPairedEnd=pairornot,
+                         allowMultiOverlap=multiple_overlap_or_not,
+                         isPairedEnd=paired_or_not,
                          countMultiMappingReads=FALSE)
            )
     }
 
 ########### Create a tab with the info of the mapped reads positions ###########
-
+## Usage : makemytab(df) with df being a FC$count object
 makemytab <- function(df){
     mito <- df[grepl("mito_only_1", rownames(df)),]
     api <- df[grepl("apico_only_1", rownames(df)),]
@@ -49,9 +50,11 @@ setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat
 SamsR1 <- list.files(pattern="R1_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
 SamsR2 <- list.files(pattern="R2_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
 
-F1_R1 <- MyfeatureCounts(SamsR1, FALSE, TRUE)
-F1_R2 <- MyfeatureCounts(SamsR2, FALSE, TRUE)
+## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
+F1_R1 <- MyfeatureCounts(SamsR1, FALSE, FALSE)
+F1_R2 <- MyfeatureCounts(SamsR2, FALSE, FALSE)
 
+## Usage : makemytab(df) with df being a FC$count object
 TabFinal <- rbind(makemytab(F1_R1$count),makemytab(F1_R2$count))
 rn <- rownames(TabFinal)
 TabFinal <- TabFinal[order(rn), ]
