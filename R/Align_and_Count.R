@@ -5,8 +5,21 @@ library(pheatmap)
 library(gridExtra)
 library("Biostrings")
 ######################################
-## FUNCTIONS ##
 
+## Import the total number of sequences per libraries
+Numberseq <- read.csv("/SAN/Alices_sandpit/sequencing_data_dereplicated/NumberOfSequences.csv", sep=" ", header=FALSE)
+## Rename human friendly :
+myfunc <- function(x){
+    return(sub("_00.*.","",x))
+}
+Numberseq$V2 <- apply(Numberseq[2], 1,myfunc)
+myfunc2 <- function(x){
+    return(sub("_S.*.","",x))
+}
+Numberseq$V3 <- apply(Numberseq[2], 1,myfunc2)
+names(Numberseq) <- c("totalseq","libraries","libshort")
+
+## FUNCTIONS ##
 ########### Create a function calculating the count of features ###########
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
 MyfeatureCounts <- function(SamFiles, paired_or_not, multiple_overlap_or_not) {
@@ -58,26 +71,35 @@ F1_R2 <- MyfeatureCounts(SamsR2, FALSE, FALSE)
 TabFinal <- rbind(makemytab(F1_R1$count),makemytab(F1_R2$count))
 rn <- rownames(TabFinal)
 TabFinal <- TabFinal[order(rn), ]
-
-write.table(x=TabFinal, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.csv", quote=FALSE)
-
-### TO ADD : total numbr of reads cf fasta dereplicated file + not aligned
+TabFinal <- merge(Numberseq, TabFinal, by = intersect(names(Numberseq), names(TabFinal)))
+TabFinal$not_aligned <- Tab$totalseq - Tab$TotalAligned
+write.table(x=Tab, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.csv", row.names = FALSE, quote=FALSE)
 
 ### Some visualisation :
-Tabplot <- melt(TabFinal, id=c("libraries","TotalAligned"))
-pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.pdf")
-myplot <-
-    ggplot(Tabplot, aes(x=libraries, y=value, fill=variable))+
-    geom_bar()
-dev.off()
+Tabplot <- melt(TabFinal, id=c("libraries","TotalAligned","libshort","totalseq"))
 
+## Log 10 for more visibility :
+for (i in 1:nrow(Tabplot)){
+    if (Tabplot$value[i]==0) {
+        Tabplot$log10val[i] <- 0
+    } else {
+        Tabplot$log10val[i] <- log10(Tabplot$value[i])
+    }
+}
+
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.pdf")
+myplot <- ggplot(Tabplot, aes(x=libraries, y=log10val, fill=variable))+
+    geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
+    theme_minimal()+
+    ggtitle("Write a title")+
+    labs(fill = "")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
+    ylab("Log 10 of the number of reads per category")
+dev.off()
 ## NB : if Multipleoverlap not allowed, it's not comparable (one read can touch On and Off targets)
 
 #################################
-
-
-
-
 
 
 

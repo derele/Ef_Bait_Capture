@@ -45,6 +45,10 @@ grep ">" /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa | 
 # number of characters in fasta file :
 wc -m < /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa
 
+# Number of sequences par fasta file :
+for i in *unique.fasta.fa; do wc -l $i >> NumberOfSequences; done #NB must be divided by 2!
+awk '$1/=2' < NumberOfSequences > NumberOfSequences.csv
+
 ##########################
 ##Transform a GFF to GTF##
 ##########################
