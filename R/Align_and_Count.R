@@ -8,6 +8,10 @@ library("Biostrings")
 
 ## Import the total number of sequences per libraries
 Numberseq <- read.csv("/SAN/Alices_sandpit/sequencing_data_dereplicated/NumberOfSequences.csv", sep=" ", header=FALSE)
+
+##Remove the libraries with not enough sequences :
+Numberseq <- Numberseq[-which(Numberseq$V1 < 500000),]
+
 ## Rename human friendly :
 myfunc <- function(x){
     return(sub("_00.*.","",x))
@@ -21,20 +25,19 @@ names(Numberseq) <- c("totalseq","libraries","libshort")
 ## Same but with the mean of the R1 and R2 reads
 Numberseq_paired <- aggregate(Numberseq$totalseq ~ Numberseq$libshort, FUN = mean )
 names(Numberseq_paired) <- c("libshort", "meanpairedseq")
-## Remove the number of sequences too low
-Number_paired <- Numberseq_paired[-which(Numberseq_paired$meanpairedseq < 500000),]
 
 ## FUNCTIONS ##
 ########### Create a function calculating the count of features ###########
-## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
-MyfeatureCounts <- function(SamFiles, paired_or_not, multiple_overlap_or_not) {
+## Usage : MyfeatureCounts(SamFiles, paired_or_not) 
+MyfeatureCounts <- function(SamFiles, paired_or_not) {
     return(featureCounts(SamFiles,
                          annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf",
                          isGTFAnnotationFile=TRUE,
                          GTF.featureType= "sequence_feature",
                          useMetaFeatures=FALSE,
                          GTF.attrType="bait_id",
-                         allowMultiOverlap=multiple_overlap_or_not,
+                         allowMultiOverlap=TRUE,
+                         largestOverlap=TRUE, ## if multiple overlap, biggest region counted
                          isPairedEnd=paired_or_not,
                          countMultiMappingReads=FALSE)
            )
@@ -64,8 +67,31 @@ makemytab <- function(df,alignment){
     return(BigTab)
 }
 
-######################################
+########### Create a tab with the coverage of the mapped reads positions ###########
+## Usage : mytabcov(df) with df an output of R Feature Count
 
+mytabcov <- function(df){
+    MyDF <- data.frame(matrix(unlist(df$count), nrow=35131, byrow=F),stringsAsFactors=FALSE)
+    ## Add the libraries names
+    names(MyDF) <- colnames(df$count)
+    ## Add the regions names
+    MyDF$baits <- make.names(rownames(df$count), unique=TRUE)
+    ## Add the length of the regions
+    MyDF$Length <- F1_R1$annotation$Length
+    ## Melt all libraries
+    MyDF <- melt(MyDF, id=c("baits","Length"))
+    ## Calculate the coverage per region
+    MyDF$cov <- MyDF$value/MyDF$Length
+    ## Subset by group : mito, api, off target, on target
+    MyDF$Group <- ifelse(grepl("mito", MyDF$baits, ignore.case = T), "Mitochondria",
+                  ifelse(grepl("apico", MyDF$baits, ignore.case = T),  "Apicoplast",
+                  ifelse(grepl("Off", MyDF$baits, ignore.case = T),  "Genome OFF target", "Genome ON target")))
+    MyDF2 <- aggregate(MyDF$cov ~ MyDF$variable + MyDF$Group, FUN=mean)
+    names(MyDF2) <- c("Libraries","Group", "Coverage")
+    return(MyDF2)
+    }
+
+######################
 ## I. FeactureCount with a sam from BLAT alignment 80% similitude nucleotide level
 ## --> Is it trustable? The manual says 95%, we set up manually 80%
 setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/GOOD/")
@@ -73,8 +99,8 @@ SamsR1 <- list.files(pattern="R1_001.fastq.unique.fasta.fa_blatDna.sam$", full.n
 SamsR2 <- list.files(pattern="R2_001.fastq.unique.fasta.fa_blatDna.sam$", full.names=TRUE)
 
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
-F1_R1 <- MyfeatureCounts(SamsR1, FALSE, FALSE)
-F1_R2 <- MyfeatureCounts(SamsR2, FALSE, FALSE)
+F1_R1 <- MyfeatureCounts(SamsR1, FALSE)
+F1_R2 <- MyfeatureCounts(SamsR2, FALSE)
 
 ## Usage : makemytab(df) with df being a FC$count object
 Tab1 <- rbind(makemytab(F1_R1$count, alignment="blat"),makemytab(F1_R2$count, alignment="blat"))
@@ -82,7 +108,7 @@ rn <- rownames(Tab1)
 Tab1 <- Tab1[order(rn), ]
 Tab1 <- merge(Numberseq, Tab1, by = intersect(names(Numberseq), names(Tab1)))
 Tab1$not_aligned <- Tab1$totalseq - Tab1$TotalAligned
-write.table(x=Tab, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.csv", row.names = FALSE, quote=FALSE)
+write.table(x=Tab1, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_Dna.csv", row.names = FALSE, quote=FALSE)
 
 ### Some visualisation :
 Tabplot1 <- melt(Tab1, id=c("libraries","TotalAligned","libshort","totalseq"))
@@ -101,7 +127,7 @@ myplot1
 dev.off()
 ## NB : if Multipleoverlap not allowed, it's not comparable (one read can touch On and Off targets)
 
-#################################
+######################
 ## II. FeactureCount with a bam from Rsubread:align alignment 80% similitude nucleotide level (30 MM max allowed, 10 indels allowed)
 
 ## II.1. built an index (hash table) for read mapping 
@@ -115,14 +141,14 @@ if(!file.exists("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_genome_re
 ## II.2. List our _dereplicated_ files (see tally in bash notes). 
 FilesR1 <- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated",
                       pattern="R1_001.fastq.unique.gz$", full.names=TRUE)
-FilesR2 <- list.files(path = "/SAN/Alices_sandpit/sequencing_data_
-ed",
+FilesR2 <- list.files(path = "/SAN/Alices_sandpit/sequencing_data_dereplicated",
                       pattern="R2_001.fastq.unique.gz$", full.names=TRUE)
+
 ## erase "Undetermine" library
-FilesR1 <- FilesR1[-19];FilesR2 <- FilesR2[-19]
+FilesR1 <- FilesR1[-19]; FilesR2 <- FilesR2[-19]
 ## and files crashing R : 2808Do,2809Do,2812Double,2919Single, 2809Si, 2812Si
-FilesR1 <- FilesR1[-c(5,8,11,15,9,12)]
-FilesR2 <- FilesR2[-c(5,8,11,15,9,12)]
+##FilesR1 <- FilesR1[-c(5,8,11,15,9,12)]
+##FilesR2 <- FilesR2[-c(5,8,11,15,9,12)]
 
 ## II.4. Create the alignments 
 ## Alignments were created for Mismatches <- c(0,1,3,10,20,30,50,70)
@@ -144,7 +170,7 @@ thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All
                       pattern="_30.BAM$", full.names=TRUE)
 
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
-## F2 <- MyfeatureCounts(thebams, FALSE, FALSE)
+F2 <- MyfeatureCounts(thebams, FALSE)
 
 ## Usage : makemytab(df) with df being a FC$count object and "alignment" name 
 Tab2 <- makemytab(F2$count, "Rsubread")
@@ -156,7 +182,7 @@ Tab2$libshort <- Tab2$libraries
 Tab2 <- merge(Numberseq_paired, Tab2, by = intersect(names(Numberseq_paired), names(Tab2)))
 ## Paired!
 Tab2$not_aligned <- Tab2$meanpairedseq - Tab2$TotalAligned
-write.table(x=Tab, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Rsubread_align.csv", row.names = FALSE, quote=FALSE)
+write.table(x=Tab2, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Rsubread_align.csv", row.names = FALSE, quote=FALSE)
 
 ### Some visualisation :
 Tabplot2 <- melt(Tab2, id=c("libraries","TotalAligned","libshort","meanpairedseq"))
@@ -175,17 +201,56 @@ myplot2
 dev.off()
 ## NB : if Multipleoverlap not allowed, it's not comparable (one read can touch On and Off targets)
 
-#################################
+######################
+## III. FeactureCount with a sam from BLAT X alignment 80% similitude protein level
+setwd("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/GOOD/")
+SamsXR1 <- list.files(pattern="R1_001.fastq.unique.fasta.fa_blatDnax.sam$", full.names=TRUE)
+SamsXR2 <- list.files(pattern="R2_001.fastq.unique.fasta.fa_blatDnax.sam$", full.names=TRUE)
+
+## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
+F3_R1 <- MyfeatureCounts(SamsXR1, FALSE)
+F3_R2 <- MyfeatureCounts(SamsXR2, FALSE)
+
+## Usage : makemytab(df) with df being a FC$count object
+Tab3 <- rbind(makemytab(F3_R1$count, alignment="blat"),makemytab(F3_R2$count, alignment="blat"))
+rn <- rownames(Tab1)
+Tab3 <- Tab1[order(rn), ]
+Tab3 <- merge(Numberseq, Tab3, by = intersect(names(Numberseq), names(Tab3)))
+Tab3$not_aligned <- Tab3$totalseq - Tab3$TotalAligned
+write.table(x=Tab3, file="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_DnaX.csv", row.names = FALSE, quote=FALSE)
+
+### Some visualisation :
+Tabplot3 <- melt(Tab3, id=c("libraries","TotalAligned","libshort","totalseq"))
+
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Blat_DnaX.pdf")
+myplot3 <- ggplot(Tabplot3, aes(x=libraries, y=value, fill=variable))+
+    geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
+    theme_minimal()+
+    ggtitle("Blat with alignment on protein, 80% identity")+
+    labs(fill = "")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
+    ylab("Number of reads per category")+
+    scale_y_log10()
+myplot3
+dev.off()
+## NB : if Multipleoverlap not allowed, it's not comparable (one read can touch On and Off targets)
+
+######################
 ## COMPARISONS :
-## First, stuck together the reads for R1 and R2 when applicable
+## First, stick together the reads for R1 and R2 when applicable
 Tabplot1bis <- aggregate(Tabplot1$value ~ Tabplot1$libshort + Tabplot1$variable, FUN=sum)
 names(Tabplot1bis) <- c("libraries", "variable", "value")
 
 Tabplot2bis <- Tabplot2[c("libraries", "variable", "value")]
 
+Tabplot3bis <- aggregate(Tabplot3$value ~ Tabplot3$libshort + Tabplot3$variable, FUN=sum)
+names(Tabplot3bis) <- c("libraries", "variable", "value")
+
 Tabplot1bis$aligner <- "Blat_DNA"
 Tabplot2bis$aligner <- "Rsubread_align"
-TabAll <- rbind(Tabplot1bis, Tabplot2bis)
+Tabplot3bis$aligner <- "Blat_DNAX"
+TabAll <- rbind(Tabplot1bis, Tabplot2bis, Tabplot3bis)
 
 pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/All_aligners.pdf", width=20)
 myplotAll <- ggplot(TabAll, aes(x=libraries, y=value, fill=variable))+
@@ -200,36 +265,71 @@ myplotAll <- ggplot(TabAll, aes(x=libraries, y=value, fill=variable))+
 myplotAll
 dev.off()
 
+TabAll
 
 
+##################################
+#######Know with coverages########
 
+## Blat : M1
+## NB : we use the average value between R1 and R2 alignments
+M1.1 <- mytabcov(F1_R1)
+M1.1$Libraries <-substr(sub("_S.*.","",M1.1$Libraries),3,50)
+M1.2 <- mytabcov(F1_R2)
+M1.2$Libraries <-substr(sub("_S.*.","",M1.2$Libraries),3,50)
 
+M1 <- rbind(M1.1,M1.2)
+M1 <- aggregate(M1$Coverage ~ M1$Libraries + M1$Group, FUN=mean)
+M1$Alignment <- "Blat DNA"
+names(M1) <- c("Libraries", "Group", "Coverage", "Alignment")
 
+## Rsubread:align : M2
+M2 <- mytabcov(F2)
+M2$Libraries <- sub(".*align.","",sub("_S.*.","",M2$Libraries))
+M2$Alignment <- "Rsubread"
+names(M2) <- c("Libraries", "Group", "Coverage", "Alignment")
 
-##################### Old : align by Rsubread:align for different MM --> not checked
+## Blatx : M3
 
-## Execute the featureCount with this new GTF
-for (MM in c(0,1,3,10,30,40,50,70)){
+M3.1 <- mytabcov(F3_R1)
+M3.1$Libraries <-substr(sub("_S.*.","",M3.1$Libraries),3,50)
+M3.2 <- mytabcov(F3_R2)
+M3.2$Libraries <-substr(sub("_S.*.","",M3.2$Libraries),3,50)
 
-MM <- 0
-    thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/",
-                          pattern=paste("_",MM,".BAM$",sep=""), full.names=TRUE)
-    theFC <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
-    theFC2 <- featureCounts(thebams, annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf", isGTFAnnotationFile=TRUE, GTF.featureType= "sequence_feature", useMetaFeatures=FALSE, GTF.attrType="bait_id", allowMultiOverlap=TRUE,isPairedEnd=TRUE,reportReads=TRUE)
+M3 <- rbind(M3.1,M3.2)
+M3 <- aggregate(M3$Coverage ~ M3$Libraries + M3$Group, FUN=mean)
+M3$Alignment <- "Blat DNAX"
+names(M3) <- c("Libraries", "Group", "Coverage", "Alignment")
 
-## Make a tab summarizing
-Mymat <- cbind(stat0,stat1,stat10,stat30)
-Mymat <- Mymat[ , order(names(Mymat))]
-pdf("Mymat.pdf", height=10, width=50)
-grid.table(Mymat)
+##### ALL :
+Mtot <- rbind(M1, M2, M3)
+
+## Coverage per Mb
+Mtot$Coverage <- Mtot$Coverage * 1000000
+
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/All_aligners_coverage.pdf", width=20)
+myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
+    geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
+    theme_minimal()+
+    labs(fill = "")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    scale_fill_manual(values=c("darkgreen","orange","red","darkblue"))+
+    ylab("Coverage per Mb for each type of region")+
+    scale_y_log10()+
+    facet_grid(Alignment ~ .)
+#    coord_cartesian(ylim=c(0, 100))
+myplotAllCOV
 dev.off()
-    
-#####################################
 
 
-    
 
 
+
+
+
+
+
+##################### Old : --> not checked
     
 ### For each library, get the number of efficient baits
 coverage <- 10

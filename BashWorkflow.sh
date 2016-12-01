@@ -78,29 +78,36 @@ mv -t Dereplicated  `ls|grep "fastq.unique."`
 
 ## --> SECOND ALIGNER TESTED : Blat (with dna and dnax) & store in /Blat_Dna and /Blat_Dnax
 
-cd /SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Blat/Blat_Dna_Dnax/
-##### Done: 2808Do and 2848Si
-## Running : 2672Si, 2807Di, 2807Si : finished for DNA, DNAX running
-time find *unique.fasta.fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
-
-## Done : the Anna's BLAT DNA
-## Running : Anna's BLAT DNAX
 cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
-find *Anna*fa
-time find *Anna*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
-time find *Anna*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDnax.psl
+
+time find What_I_want | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
 
 
-## Do 2809 all DNA
-time find 2809*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
+2812 ALL
+cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
+time find 2812*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
 
 
+cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
+time find 2812*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDnax.psl
+
+
+2919 ALL
+
+-rw-r--r-- 1 alice alice 636M Nov 27 01:45 2807Digested_S3_R1_001.fastq.unique.fasta.fa_blatDnax.psl
+-rw-r--r-- 1 alice alice  11G Nov 28 13:47 2807Single_S1_R1_001.fastq.unique.fasta.fa_blatDnax.psl
 
 
 ########
 ## Transform pls > bed > sam/bam:
 ## Usage : sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh
 ########
+for file in what_I_Want; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
+
+for file in find *Anna*Dnax.psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
+
+for file in find 2812*a.psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
+
 
 ## --> ALIGNER TO TEST : Bowtie, Bwa at first
 ## Compare the TIME needed to align (i) and the RESULTS (ii)
