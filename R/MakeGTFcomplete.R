@@ -8,7 +8,8 @@ library(gridExtra)
 library("Biostrings")
 library(stringr)
 
-## Make a GTF that contains genomeoffbaits + mito + api + baits :
+
+## PART I. Make a GTF that contains genomeoffbaits + mito + api + baits :
 
 ## load the Genome
 fastaFile <- readDNAStringSet("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_genome.fa")
@@ -24,10 +25,6 @@ baits <- baitstot[-c(nrow(baitstot),nrow(baitstot)-1),]
 
 ## get the contigs names
 Contigs <- as.character(df$seq_name)
-
-## contigs NOT used for the baits design :
-#ContigsOff <- setdiff(as.character(df$seq_name),levels(baits$V1))
-### ???###
 
 ## get the length of these contigs :
 lengthContig <- nchar(as.character(df$sequence))
@@ -119,3 +116,106 @@ head(Fullbaitsfinal)
 
 ## Export my GTF file
 write.table(x=Fullbaitsfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
+
+
+#################################################
+## PART II.  Same but with Off-target in chunks :
+#################################################
+## Complete the GTF
+#################################
+library(Rsubread)
+library(reshape)
+library(ggplot2)
+library(pheatmap)
+library(gridExtra)
+library("Biostrings")
+library(stringr)
+
+## Read in the previously written new GTF
+GTFfile <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf")
+
+## Remove 2 last lines (apicoplast + mito), to add at the end!!
+GTFfile <- GTFfile[-c(nrow(GTFfile),nrow(GTFfile)-1),]
+
+## Reorder the file to get it contig after contig, bait by bait
+### Add a column with the contig numbers (split V1)
+GTFfile$contig <- (str_split_fixed(GTFfile$V1, "_", 2))[,2]
+
+### and reorder by contig, and within contig
+head(GTFfile)
+GTFordered <- GTFfile[with(GTFfile, order(as.numeric(contig), V4)),]
+
+
+
+
+##########
+essai <- head(GTFordered, 50)
+
+essai$category <- NA # Categories will be:
+## "lonely", "<100", "100-300", "300-500", ">500"
+
+## initialization:
+if (str_split_fixed(essai$V13, "_", 3)[1,1]=="Off")  # Is it an "Off"?
+    {
+        if (essai[1,1]!=essai[2,1])
+        {
+            essai$category[1] <- "lonely"
+        }
+}    
+## full loop:
+for (i in 2:nrow(essai)) {
+    if (str_split_fixed(essai$V13, "_", 3)[i,1]=="Off")  # Is it an "Off"?
+    {
+        if (essai[i,1]!=essai[i-1,1] & essai[i,1]!=essai[i+1,1]) # Is it a seq without baits?
+        {
+            essai$category[i] <- "lonely"
+        }
+        else
+        {
+            if (essai[i,1]==essai[i-1,1] & essai[i,1]==essai[i+1,1]) # Is it a seq between 2 baits?
+            {
+                essai$category[i] <- "between"
+            }
+            else
+            {
+                if (essai[i,1]==essai[i-1,1]) # Is it a seq AFTER a bait?
+                {
+                    essai$category[i] <- "after"
+                }
+                else
+                {
+                    if (essai[i,1]==essai[i+1,1]) # Is it a seq BEFORE a bait?
+                    {
+                        essai$category[i] <- "before"
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        essai$category[i] <- "BAIT"
+    }
+}
+            
+
+## What is the distance to bait?
+
+### Calculate the length of each sequence
+essai$length <- essai$V5 - essai$V4 +1
+
+### Then assess the distance to bait of each piece. Split if necessary.
+essai$distance_to_bait <- NA
+for (i in 1:nrow(essai)) {
+    if (essai$category[i]=="lonely") # If the sequence is not on a contig with a bait, it's a "distant" sequence
+    {
+        essai$distance_to_bait[i] <- "distant"
+    }
+    if (essai$
+}
+
+
+
+tail(essai)
+head(essai)
+essai

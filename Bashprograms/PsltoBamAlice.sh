@@ -1,5 +1,8 @@
 ## Transform pls > bed > sam/bam:
 ## Usage : sh PsltoBamAlice.sh file.psl
+
+## NB : translation of "reconstructed_apicoplast" into "EfaB_7" between bed and sam. Why? No clue. Be careful!!
+
 echo "Welcome, I am ready to change your psl file to a sam/bam one"
 FILE=$1
 echo "Here is the head of your file.psl"

@@ -170,7 +170,7 @@ thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All
                       pattern="_30.BAM$", full.names=TRUE)
 
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
-F2 <- MyfeatureCounts(thebams, FALSE)
+## F2 <- MyfeatureCounts(thebams, FALSE)
 
 ## Usage : makemytab(df) with df being a FC$count object and "alignment" name 
 Tab2 <- makemytab(F2$count, "Rsubread")
@@ -269,7 +269,7 @@ TabAll
 
 
 ##################################
-#######Know with coverages########
+#######Now with coverages########
 
 ## Blat : M1
 ## NB : we use the average value between R1 and R2 alignments
@@ -290,7 +290,6 @@ M2$Alignment <- "Rsubread"
 names(M2) <- c("Libraries", "Group", "Coverage", "Alignment")
 
 ## Blatx : M3
-
 M3.1 <- mytabcov(F3_R1)
 M3.1$Libraries <-substr(sub("_S.*.","",M3.1$Libraries),3,50)
 M3.2 <- mytabcov(F3_R2)
@@ -321,7 +320,7 @@ myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
 myplotAllCOV
 dev.off()
 
-
+tail(Mtot)
 
 
 

@@ -82,20 +82,17 @@ cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
 
 time find What_I_want | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
 
-
-2812 ALL
-cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
-time find 2812*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
-
-
-cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
-time find 2812*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDnax.psl
+## running
+blat ../../Efal_mtapi.fasta.fa ../../2807Digested_S3_R2_001.fastq.unique.fasta.fa -t=dnax -q=dnax -minIdentity=80 -dots=10000 2807Digested_S3_R2_001.fastq.unique.fasta.fa_blatDnax.psl
+blat ../../Efal_mtapi.fasta.fa ../../2807Single_S1_R2_001.fastq.unique.fasta.fa -t=dnax -q=dnax -minIdentity=80 -dots=10000 2807Single_S1_R2_001.fastq.unique.fasta.fa_blatDnax.psl
 
 
-2919 ALL
+time find ../../2808Si*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
+time find ../../2808Si*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
 
--rw-r--r-- 1 alice alice 636M Nov 27 01:45 2807Digested_S3_R1_001.fastq.unique.fasta.fa_blatDnax.psl
--rw-r--r-- 1 alice alice  11G Nov 28 13:47 2807Single_S1_R1_001.fastq.unique.fasta.fa_blatDnax.psl
+time find find ../../2919S*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
+time find find ../../2919S*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
+
 
 
 ########
@@ -104,9 +101,12 @@ time find 2812*fa | parallel blat Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIde
 ########
 for file in what_I_Want; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
-for file in find *Anna*Dnax.psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
-for file in find 2812*a.psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
+## NB error in the sams files : EfaB_7 replace reconstructed_apicoplast!!
+for i in  .sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
+
+## At the end, check for all
+for file in 
 
 
 ## --> ALIGNER TO TEST : Bowtie, Bwa at first
