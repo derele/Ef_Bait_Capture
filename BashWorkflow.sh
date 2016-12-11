@@ -101,13 +101,11 @@ time find find ../../2919S*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dn
 ########
 for file in what_I_Want; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
+## example
+for file in 2812*psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
 ## NB error in the sams files : EfaB_7 replace reconstructed_apicoplast!!
-for i in  .sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
-
-## At the end, check for all
-for file in 
-
+for i in  *.sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
 
 ## --> ALIGNER TO TEST : Bowtie, Bwa at first
 ## Compare the TIME needed to align (i) and the RESULTS (ii)
