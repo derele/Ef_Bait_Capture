@@ -160,26 +160,26 @@ myDF$length <- myDF$V5 - myDF$V4 +1
 
 ## initialization:
 if (str_split_fixed(myDF$V13, "_", 3)[1,1]=="Off")  # Is it an "Off"?
+{
+    if (myDF[1,1]!=myDF[2,1])
     {
-        if (myDF[1,1]!=myDF[2,1])
-        {
-            myDF$category[1] <- "lonely"
-        }
+        myDF$category[1] <- "lonely"
+    }
 }    
 ## full loop:
 for (i in 2:nrow(myDF)) {
     if (str_split_fixed(myDF$V13, "_", 3)[i,1]=="Off")  # Is it an "Off"?
     {if (myDF[i,1]!=myDF[i-1,1] & myDF[i,1]!=myDF[i+1,1]) # Is it a seq without baits?
-        {myDF$category[i] <- "lonely"}
-        else
+     {myDF$category[i] <- "lonely"}
+     else
         {if (myDF[i,1]==myDF[i-1,1] & myDF[i,1]==myDF[i+1,1]) # Is it a seq between 2 baits?
-            {myDF$category[i] <- "between"}
-            else
+         {myDF$category[i] <- "between"}
+         else
             {if (myDF[i,1]==myDF[i-1,1]) # Is it a seq AFTER a bait?
-                {myDF$category[i] <- "after"}
-                else
+             {myDF$category[i] <- "after"}
+             else
                 {if (myDF[i,1]==myDF[i+1,1]) # Is it a seq BEFORE a bait?
-                    {myDF$category[i] <- "before"}
+                 {myDF$category[i] <- "before"}
                 }
             }
         }
@@ -188,6 +188,13 @@ for (i in 2:nrow(myDF)) {
     {myDF$category[i] <- "BAIT"}
 }
 
+myDFsave <- myDF
+
+
+#####
+myDF <- myDFsave
+
+myDF
 ### Then assess the distance to bait of each piece. Split if necessary.
 myDF$distance_to_bait <- NA
 
@@ -405,7 +412,12 @@ for (i in 1:nrow(myDF)) {
     }
 }
 
+myDF
 
+# myDFsec2 <- myDF
+
+
+myDF <- myDFsec2
 ## Remove the "to remove"
 myDF <- myDF[!grepl("remove", myDF$distance_to_bait),]
 
@@ -421,7 +433,7 @@ myDFfinal <- myDF[-c(14:18)]
 ## Add back the last 2 lines (apicoplast + mitocondria)
 
 ## Export my GTF file
-myDFfinal <- cbind(myDFfinal, GTFfile[c(nrow(GTFfile),nrow(GTFfile)-1),])
+myDFfinal <- rbind(myDFfinal, GTFfile[c(nrow(GTFfile),nrow(GTFfile)-1),])
 
 ## Export
-write.table(x=mDFfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_COMPLETE.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
+write.table(x=myDFfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_COMPLETE.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
