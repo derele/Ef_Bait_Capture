@@ -31,7 +31,7 @@ names(Numberseq_paired) <- c("libshort", "meanpairedseq")
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not) 
 MyfeatureCounts <- function(SamFiles, paired_or_not) {
     return(featureCounts(SamFiles,
-                         annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget.gtf",
+                         annot.ext="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete.gtf",
                          isGTFAnnotationFile=TRUE,
                          GTF.featureType= "sequence_feature",
                          useMetaFeatures=FALSE,
@@ -43,6 +43,7 @@ MyfeatureCounts <- function(SamFiles, paired_or_not) {
            )
     }
 
+
 ########### Create a tab with the info of the mapped reads positions ###########
 ## Usage : makemytab(df) with df being a FC$count object and "alignment" name 
 makemytab <- function(df,alignment){
@@ -51,10 +52,20 @@ makemytab <- function(df,alignment){
     ## Remove apico and mito lines
     dfnucl <- df[-c(nrow(df),nrow(df)-1),]
     ## Count the sum of the off target sequences
-    Efal_genome_Off_Target <- colSums(dfnucl[grepl("Off", rownames(dfnucl)),])
-    Efal_genome_On_Target <- colSums(dfnucl[!grepl("Off", rownames(dfnucl)),])
+    ## Efal_genome_Off_Target <- colSums(dfnucl[grepl("Off", rownames(dfnucl)),])
+    Efal_genome_0_to_100 <- colSums(dfnucl[grepl("0_to_100", rownames(dfnucl)),])
+    Efal_genome_100_to_300<- colSums(dfnucl[grepl("100_to_300", rownames(dfnucl)),])
+    Efal_genome_300_to_500<- colSums(dfnucl[grepl("300_to_500", rownames(dfnucl)),])
+    Efal_genome_more_than_500 <- colSums(dfnucl[grepl("more_than_500", rownames(dfnucl)),])
+    Efal_genome_distant <- colSums(dfnucl[grepl("distant", rownames(dfnucl)),])
+        Efal_genome_On_Target <- colSums(dfnucl[!grepl("Off", rownames(dfnucl)),])
     ## Create tab
-    BigTab <- data.frame(Efal_genome_On_Target,Efal_genome_Off_Target,mito, api)
+    BigTab <- data.frame(Efal_genome_On_Target,
+                         Efal_genome_0_to_100,
+                         Efal_genome_100_to_300,
+                         Efal_genome_300_to_500,
+                         Efal_genome_more_than_500,
+                         Efal_genome_distant,mito, api)
     BigTab$TotalAligned <- rowSums(BigTab)
     BigTab$not_aligned <- NA
     ## Rename human friendly style
@@ -71,7 +82,7 @@ makemytab <- function(df,alignment){
 ## Usage : mytabcov(df) with df an output of R Feature Count
 
 mytabcov <- function(df){
-    MyDF <- data.frame(matrix(unlist(df$count), nrow=35131, byrow=F),stringsAsFactors=FALSE)
+    MyDF <- data.frame(matrix(unlist(df$count), nrow=83690, byrow=F),stringsAsFactors=FALSE)
     ## Add the libraries names
     names(MyDF) <- colnames(df$count)
     ## Add the regions names
@@ -85,11 +96,16 @@ mytabcov <- function(df){
     ## Subset by group : mito, api, off target, on target
     MyDF$Group <- ifelse(grepl("mito", MyDF$baits, ignore.case = T), "Mitochondria",
                   ifelse(grepl("apico", MyDF$baits, ignore.case = T),  "Apicoplast",
-                  ifelse(grepl("Off", MyDF$baits, ignore.case = T),  "Genome OFF target", "Genome ON target")))
+                  ifelse(grepl("0_to_100", MyDF$baits, ignore.case = T),  "Genome 0 to 100bp from bait",
+                  ifelse(grepl("100_to_300",MyDF$baits, ignore.case = T),  "Genome 100 to 300bp from bait",
+                  ifelse(grepl("300_to_500",MyDF$baits, ignore.case = T),  "Genome 300 to 500bp from bait",
+                  ifelse(grepl("more_than_300",MyDF$baits, ignore.case = T),  "Genome more than 500bp from bait",
+                  ifelse(grepl("distant",MyDF$baits, ignore.case = T),  "Genome on a contig with no bait", "Genome ON target")))))))
     MyDF2 <- aggregate(MyDF$cov ~ MyDF$variable + MyDF$Group, FUN=mean)
     names(MyDF2) <- c("Libraries","Group", "Coverage")
     return(MyDF2)
     }
+
 
 ######################
 ## I. FeactureCount with a sam from BLAT alignment 80% similitude nucleotide level
@@ -166,11 +182,10 @@ sapply(Mismatches, function (MM){
 
 ## II.5. Create the featureCounts objects for a given "maxmismatches"
 MM <- 30
-thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align",
-                      pattern="_30.BAM$", full.names=TRUE)
+thebams <- list.files(path="/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align", pattern="_30.BAM$", full.names=TRUE)
 
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not, multiple_overlap_or_not) 
-## F2 <- MyfeatureCounts(thebams, FALSE)
+F2 <- MyfeatureCounts(thebams, FALSE)
 
 ## Usage : makemytab(df) with df being a FC$count object and "alignment" name 
 Tab2 <- makemytab(F2$count, "Rsubread")
@@ -194,7 +209,7 @@ myplot2 <- ggplot(Tabplot2, aes(x=libraries, y=value, fill=variable))+
     ggtitle("Rsubread:align, MM=30 (20%), MI=10")+
     labs(fill = "")+
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
+#    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
     ylab("Number of reads per category")+
     scale_y_log10()
 myplot2
@@ -229,7 +244,7 @@ myplot3 <- ggplot(Tabplot3, aes(x=libraries, y=value, fill=variable))+
     ggtitle("Blat with alignment on protein, 80% identity")+
     labs(fill = "")+
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
+#    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
     ylab("Number of reads per category")+
     scale_y_log10()
 myplot3
@@ -258,7 +273,7 @@ myplotAll <- ggplot(TabAll, aes(x=libraries, y=value, fill=variable))+
     theme_minimal()+
     labs(fill = "")+
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
+ #   scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
     ylab("Number of reads per category")+
     scale_y_log10()+
     facet_grid(aligner ~ .)
@@ -306,13 +321,15 @@ Mtot <- rbind(M1, M2, M3)
 ## Coverage per Mb
 Mtot$Coverage <- Mtot$Coverage * 1000000
 
+Mtot$Group <- factor(Mtot$Group, levels = c("Genome ON target", "Genome 0 to 100bp from bait", "Genome 100 to 300bp from bait", "Genome 300 to 500bp from bait", "Genome on a contig with no bait", "Mitochondria", "Apicoplast"))
+
 pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/All_aligners_coverage.pdf", width=20)
 myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
     geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
     theme_minimal()+
     labs(fill = "")+
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_fill_manual(values=c("darkgreen","orange","red","darkblue"))+
+    scale_fill_manual(values=c("#990000", "#CC0000", "#FF0000", "#FF3366", "#FF6699", "darkgreen","darkblue"))+
     ylab("Coverage per Mb for each type of region")+
     scale_y_log10()+
     facet_grid(Alignment ~ .)
@@ -320,7 +337,60 @@ myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
 myplotAllCOV
 dev.off()
 
-tail(Mtot)
+## In a table, to compare with coverage at target region
+Mtot <- Mtot[order(Mtot$Libraries, Mtot$Alignment),]
+Mtot$Coverage <- round(Mtot$Coverage)
+
+Mwide <- reshape(Mtot, timevar = "Group",
+        idvar = c("Libraries", "Alignment"),
+        direction = "wide")
+
+for (i in 3:9) {
+    Mwide[i] <- Mwide[i]/Mwide[8]
+    }
+
+M <- melt(Mwide, id=c("Libraries","Alignment"))
+
+M$variable <- factor(M$variable, levels = c("Coverage.Genome ON target", "Coverage.Genome 0 to 100bp from bait", "Coverage.Genome 100 to 300bp from bait", "Coverage.Genome 300 to 500bp from bait", "Coverage.Genome on a contig with no bait", "Coverage.Mitochondria", "Coverage.Apicoplast"))
+
+M$value <- as.numeric(as.character(M$value))
+M$value <- round(M$value,1)
+
+M <- M[order(M$Libraries, M$Alignment),]
+
+
+TableFunc <- function(Tab){
+    Tab <- Tab[-2]
+    Tab <- reshape(Tab, timevar = "Libraries",
+                   idvar = "variable",
+                   direction = "wide")
+
+    rownames(Tab) <- substring(Tab$variable,10,100)
+    colnames(Tab) <- substring(colnames(Tab),7,100)
+    Tab <- Tab[-1]}
+
+## For Blat DNA
+TableFunc(M[M$Alignment=="Blat DNA",])
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/BlatDna_coverage_ratio_table.pdf",height=4, width=20)
+grid.table(Tab)
+dev.off()
+
+## For Blat DNAX
+TableFunc(M[M$Alignment=="Blat DNAX",])
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/BlatDnaX_coverage_ratio_table.pdf",height=4, width=20)
+grid.table(Tab)
+dev.off()
+
+## For Rubread
+TableFunc(M[M$Alignment=="Rsubread",])
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Rsubread_coverage_ratio_table.pdf",height=4, width=20)
+grid.table(Tab)
+dev.off()
+
+
+
+
+
 
 
 

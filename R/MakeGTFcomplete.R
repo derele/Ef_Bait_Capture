@@ -159,15 +159,10 @@ myDF$category <- NA # Categories will be:
 myDF$length <- myDF$V5 - myDF$V4 +1
 
 ## initialization:
-if (str_split_fixed(myDF$V13, "_", 3)[1,1]=="Off")  # Is it an "Off"?
-{
-    if (myDF[1,1]!=myDF[2,1])
-    {
-        myDF$category[1] <- "lonely"
-    }
-}    
+myDF$category[1] <- "lonely"
+
 ## full loop:
-for (i in 2:nrow(myDF)) {
+for (i in 2:(nrow(myDF)-1)) {
     if (str_split_fixed(myDF$V13, "_", 3)[i,1]=="Off")  # Is it an "Off"?
     {if (myDF[i,1]!=myDF[i-1,1] & myDF[i,1]!=myDF[i+1,1]) # Is it a seq without baits?
      {myDF$category[i] <- "lonely"}
@@ -188,13 +183,25 @@ for (i in 2:nrow(myDF)) {
     {myDF$category[i] <- "BAIT"}
 }
 
-myDFsave <- myDF
+## Check last line, add manualy
+myDF$category[nrow(myDF)] <- "lonely"
+
+## Check lines with no distance
+myDF[myDF$category %in% NA,]
+
+## Save
+write.table(x=myDF, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP.gtf")
 
 
-#####
-myDF <- myDFsave
+myDF <- read.table(file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP.gtf")
 
-myDF
+############ GOOD SO FAR
+
+# table(myDF[myDF$V5-myDF$V4 <= 0,][17])
+#### NB : PROBLEMS FOR SEQUENCES OF LENGTH :
+# 201  202  203  601  602  603  604  605 1001 1002 1003 1004 1006 1007
+# 15   18   11    3    2    7    5    6    4    7    5    3    4    5
+
 ### Then assess the distance to bait of each piece. Split if necessary.
 myDF$distance_to_bait <- NA
 
@@ -206,10 +213,10 @@ for (i in 1:nrow(myDF)) {
             myDF$distance_to_bait[i] <- "in_bait"
         } else {
             if (myDF$category[i]=="between") { # if the sequence is between 2 baits
-                if (myDF$length[i]<=200) { # If the sequence is smaller than 200bp
+                if (myDF$length[i]<=203) { # If the sequence is smaller than 203bp
                     myDF$distance_to_bait[i]<-"0_to_100" # Any base is distant to max 100bp to a bait
                 } else {
-                    if (myDF$length[i]<=600) { # If the sequence is smaller than 600bp, we cut it
+                    if (myDF$length[i]<=605) { # If the sequence is smaller than 605bp, we cut it
                         j <- nrow(myDF)+1 # We fill at the end of the file
                         myDF[j,] <- myDF[i,] # New lines are created to split the sequence
                         myDF[j+1,] <- myDF[i,]
@@ -226,7 +233,7 @@ for (i in 1:nrow(myDF)) {
                         myDF$subcontig[j+1] <- 2
                         myDF[i,18] <- "To remove"
                     } else {
-                        if (myDF$length[i]<=1000) { # If the sequence is smaller than 1000bp, we cut it
+                        if (myDF$length[i]<=1007) { # If the sequence is smaller than 1007bp, we cut it
                             j <- nrow(myDF)+1 # We fill at the end of the file
                             myDF[j,] <- myDF[i,] # Init.
                             myDF[j+1,] <- myDF[i,]
@@ -412,12 +419,12 @@ for (i in 1:nrow(myDF)) {
     }
 }
 
-myDF
+### CHECK
+table(myDF[myDF$V5-myDF$V4 <= 0,][17])
 
-# myDFsec2 <- myDF
+# Save
+write.table(x=myDF, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP2.gtf")
 
-
-myDF <- myDFsec2
 ## Remove the "to remove"
 myDF <- myDF[!grepl("remove", myDF$distance_to_bait),]
 
@@ -432,8 +439,36 @@ myDFfinal <- myDF[-c(14:18)]
 
 ## Add back the last 2 lines (apicoplast + mitocondria)
 
-## Export my GTF file
+## Prepare my GTF file for export
 myDFfinal <- rbind(myDFfinal, GTFfile[c(nrow(GTFfile),nrow(GTFfile)-1),])
 
+##myDFfinal <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_COMPLETE.gtf", sep="\t")
+
+# Check for NAs?
+sapply(myDFfinal, function(x) sum(is.na(x)))
+
+## Finalize my GTF file format
+
+head(myDFfinal)
+
+## Troubleshooting : check when V5 - V4 < 100 (should be never)
+
+myDFfinal[(myDFfinal$V5 - myDFfinal$V4) < 0,]
+
+diff <- myDFfinal$V5 - myDFfinal$V4
+table(diff[diff<0])
+
+head(myDFfinal)
+myDFfinal$V10 <- paste0("\"",myDFfinal$V10,"\"")
+myDFfinal$V13 <- paste0("\"",myDFfinal$V13,"\"")
+
+myDFfinal$last <- with(myDFfinal, paste(V9,V10, sep=" "))
+myDFfinal$last2 <- with(myDFfinal, paste(V11,V12,V13, sep=" "))
+myDFfinal$LAST <- with(myDFfinal, paste(last,last2, sep=""))
+
+myDFfinal <- myDFfinal[-c(9,10,11,12,13,14,15)]
+
+myDFfinal$LAST <- gsub("Off_target", "OT", myDFfinal$LAST)
+
 ## Export
-write.table(x=myDFfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_COMPLETE.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
+write.table(x=myDFfinal, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
