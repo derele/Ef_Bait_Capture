@@ -1,10 +1,14 @@
+#########################################################################
+## Align with Rsubread & read the blat alignments done before,         ##
+## then count the efficient baits and store them, with R:FeatureCounts.##
+#########################################################################
 library(Rsubread)
 library(reshape)
 library(ggplot2)
 library(pheatmap)
 library(gridExtra)
 library("Biostrings")
-######################################
+########################
 
 ## Import the total number of sequences per libraries
 Numberseq <- read.csv("/SAN/Alices_sandpit/sequencing_data_dereplicated/NumberOfSequences.csv", sep=" ", header=FALSE)
@@ -26,7 +30,10 @@ names(Numberseq) <- c("totalseq","libraries","libshort")
 Numberseq_paired <- aggregate(Numberseq$totalseq ~ Numberseq$libshort, FUN = mean )
 names(Numberseq_paired) <- c("libshort", "meanpairedseq")
 
+###############
 ## FUNCTIONS ##
+###############
+
 ########### Create a function calculating the count of features ###########
 ## Usage : MyfeatureCounts(SamFiles, paired_or_not) 
 MyfeatureCounts <- function(SamFiles, paired_or_not) {
@@ -42,7 +49,6 @@ MyfeatureCounts <- function(SamFiles, paired_or_not) {
                          countMultiMappingReads=FALSE)
            )
     }
-
 
 ########### Create a tab with the info of the mapped reads positions ###########
 ## Usage : makemytab(df) with df being a FC$count object and "alignment" name 
@@ -78,17 +84,18 @@ makemytab <- function(df,alignment){
     return(BigTab)
 }
 
+
 ########### Create a tab with the coverage of the mapped reads positions ###########
 ## Usage : mytabcov(df) with df an output of R Feature Count
 
-mytabcov <- function(df){
+mytabcov <- function(df,whichpart){
     MyDF <- data.frame(matrix(unlist(df$count), nrow=83690, byrow=F),stringsAsFactors=FALSE)
     ## Add the libraries names
     names(MyDF) <- colnames(df$count)
     ## Add the regions names
     MyDF$baits <- make.names(rownames(df$count), unique=TRUE)
     ## Add the length of the regions
-    MyDF$Length <- F1_R1$annotation$Length
+    MyDF$Length <- df$annotation$Length
     ## Melt all libraries
     MyDF <- melt(MyDF, id=c("baits","Length"))
     ## Calculate the coverage per region
@@ -101,11 +108,14 @@ mytabcov <- function(df){
                   ifelse(grepl("300_to_500",MyDF$baits, ignore.case = T),  "Genome 300 to 500bp from bait",
                   ifelse(grepl("more_than_300",MyDF$baits, ignore.case = T),  "Genome more than 500bp from bait",
                   ifelse(grepl("distant",MyDF$baits, ignore.case = T),  "Genome on a contig with no bait", "Genome ON target")))))))
+    ## For the second part, a category is added
+    if (whichpart==2){
+        MyDF[MyDF$baits %in% BaitsTot,]$Group <- "Selected_baits"
+    }
     MyDF2 <- aggregate(MyDF$cov ~ MyDF$variable + MyDF$Group, FUN=mean)
     names(MyDF2) <- c("Libraries","Group", "Coverage")
     return(MyDF2)
-    }
-
+}
 
 ######################
 ## I. FeactureCount with a sam from BLAT alignment 80% similitude nucleotide level
@@ -136,12 +146,11 @@ myplot1 <- ggplot(Tabplot1, aes(x=libraries, y=value, fill=variable))+
     ggtitle("Blat with alignment on nucleotide level, 80% identity")+
     labs(fill = "")+
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
+    #scale_fill_manual(values=c("red","orange","darkblue","darkgreen","grey"))+
     ylab("Number of reads per category")+
     scale_y_log10()
 myplot1
 dev.off()
-## NB : if Multipleoverlap not allowed, it's not comparable (one read can touch On and Off targets)
 
 ######################
 ## II. FeactureCount with a bam from Rsubread:align alignment 80% similitude nucleotide level (30 MM max allowed, 10 indels allowed)
@@ -280,17 +289,14 @@ myplotAll <- ggplot(TabAll, aes(x=libraries, y=value, fill=variable))+
 myplotAll
 dev.off()
 
-TabAll
-
-
 ##################################
 #######Now with coverages########
 
 ## Blat : M1
 ## NB : we use the average value between R1 and R2 alignments
-M1.1 <- mytabcov(F1_R1)
+M1.1 <- mytabcov(F1_R1,"first")
 M1.1$Libraries <-substr(sub("_S.*.","",M1.1$Libraries),3,50)
-M1.2 <- mytabcov(F1_R2)
+M1.2 <- mytabcov(F1_R2,"first")
 M1.2$Libraries <-substr(sub("_S.*.","",M1.2$Libraries),3,50)
 
 M1 <- rbind(M1.1,M1.2)
@@ -299,15 +305,15 @@ M1$Alignment <- "Blat DNA"
 names(M1) <- c("Libraries", "Group", "Coverage", "Alignment")
 
 ## Rsubread:align : M2
-M2 <- mytabcov(F2)
+M2 <- mytabcov(F2,"first")
 M2$Libraries <- sub(".*align.","",sub("_S.*.","",M2$Libraries))
 M2$Alignment <- "Rsubread"
 names(M2) <- c("Libraries", "Group", "Coverage", "Alignment")
 
 ## Blatx : M3
-M3.1 <- mytabcov(F3_R1)
+M3.1 <- mytabcov(F3_R1,"first")
 M3.1$Libraries <-substr(sub("_S.*.","",M3.1$Libraries),3,50)
-M3.2 <- mytabcov(F3_R2)
+M3.2 <- mytabcov(F3_R2,"first")
 M3.2$Libraries <-substr(sub("_S.*.","",M3.2$Libraries),3,50)
 
 M3 <- rbind(M3.1,M3.2)
@@ -333,7 +339,6 @@ myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
     ylab("Coverage per Mb for each type of region")+
     scale_y_log10()+
     facet_grid(Alignment ~ .)
-#    coord_cartesian(ylim=c(0, 100))
 myplotAllCOV
 dev.off()
 
@@ -358,83 +363,179 @@ M$value <- round(M$value,1)
 
 M <- M[order(M$Libraries, M$Alignment),]
 
-
 TableFunc <- function(Tab){
     Tab <- Tab[-2]
     Tab <- reshape(Tab, timevar = "Libraries",
                    idvar = "variable",
                    direction = "wide")
-
     rownames(Tab) <- substring(Tab$variable,10,100)
     colnames(Tab) <- substring(colnames(Tab),7,100)
-    Tab <- Tab[-1]}
+    Tab <- Tab[-1]
+    return(Tab)}
 
 ## For Blat DNA
-TableFunc(M[M$Alignment=="Blat DNA",])
 pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/BlatDna_coverage_ratio_table.pdf",height=4, width=20)
+Tab <- TableFunc(M[M$Alignment=="Blat DNA",])
 grid.table(Tab)
 dev.off()
 
 ## For Blat DNAX
-TableFunc(M[M$Alignment=="Blat DNAX",])
 pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/BlatDnaX_coverage_ratio_table.pdf",height=4, width=20)
+Tab <- TableFunc(M[M$Alignment=="Blat DNAX",])
 grid.table(Tab)
 dev.off()
 
 ## For Rubread
-TableFunc(M[M$Alignment=="Rsubread",])
 pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Rsubread_coverage_ratio_table.pdf",height=4, width=20)
+Tab <- TableFunc(M[M$Alignment=="Rsubread",])
 grid.table(Tab)
 dev.off()
 
 
+########################################## 
+## Then, which baits have which coverage?#
+##################### ####################
 
+### For each library, get the number of "efficient" baits
 
+### Q°1 : how many different baits captured some reads?
+library(stringr)
+## Ex 1 : F1_R1
+DfBaits <- as.data.frame(as.table(F1_R1$counts))
+names(DfBaits) <- c("region","libraries","coverage")
+DfBaits$libraries <- substr(DfBaits$libraries,3,8)
 
+# Define a type of region (apico, mito, EfaB=bait, OT=Off Target)
+DfBaits$type <- str_split_fixed(DfBaits$region, "_",3)[,1]
 
+## For later heatmaps of the baits vs a heatmap
+C1.1 <- F1_R1$counts
+colnames(C1.1) <- substr(colnames(C1.1),3,8)
+C1.1.baits <- C1.1[grep("EfaB_", rownames(C1.1)), ]
 
+C1.2 <- F1_R2$counts
+colnames(C1.2) <- substr(colnames(C1.2),3,8)
+C1.2.baits <- C1.2[grep("EfaB_", rownames(C1.2)), ]
 
+C2 <- F2$counts
+colnames(C2) <- substr(colnames(C2),81,86)##
+C2.baits <- C2[grep("EfaB_", rownames(C2)), ]
 
+C3.1 <- F3_R1$counts
+colnames(C3.1) <- substr(colnames(C3.1),3,8)
+C3.1.baits <- C3.1[grep("EfaB_", rownames(C3.1)), ]
 
-
-
-##################### Old : --> not checked
-    
-### For each library, get the number of efficient baits
-coverage <- 10
-l <- ncol(counts0)
-
-## How many baits capture sequences?
-myvec1 <- vector(mode="numeric", length=0);myvec2 <- vector(mode="numeric", length=0);myvec3 <- vector(mode="numeric", length=0);myvec4 <- vector(mode="numeric", length=0);myvec5 <- vector(mode="numeric", length=0);myvec6 <- vector(mode="numeric", length=0)
-for (i in (3:l)) {
-    myvec1 <- c(myvec1,sum(counts10[i]>coverage))
-    myvec2 <- c(myvec2,sum(counts20[i]>coverage))
-    myvec3 <- c(myvec3,sum(counts30[i]>coverage))
-    myvec4 <- c(myvec4,sum(counts50[i]>coverage))
-    myvec5 <- c(myvec5,sum(counts70[i]>coverage))
-    myvec6 <- c(myvec5,sum(counts0[i]>coverage))
-}
-mytab <- data.frame(names(counts10)[3:l],myvec1,myvec2,myvec3,myvec4,myvec5)
-names(mytab) <- c("Libraries", "MM=10", "MM=20", "MM=30", "MM=50", "MM=70")
-pdf("Fig_NumberEfficientBaitsCov0.pdf", height=11, width=8.5, title ="Baits with a minimum coverage of 10")
-grid.table(mytab)
-dev.off()
-## same with coverage = 1 saved in "Fig_NumberEfficientBaitsCov1.pdf"
+C3.2 <- F3_R2$counts
+colnames(C3.2) <- substr(colnames(C3.2),3,8)
+C3.2.baits <- C3.2[grep("EfaB_", rownames(C3.2)), ]
 
 ## Which baits? Selection of the efficient baits
-## To be continued.....
-GoodBaits <- counts0$BaitID[counts0[3]>coverage]
-head(GoodBaits)
+FindBait <- function(counts){
+    ## How many baits have a coverage of min 10? Calculate on each libraries?
+    names <- colnames(counts)
+    mybiglist <- list()
+    for (i in 1:ncol(counts)){
+        vec <- names(counts[counts[,i]>10,i]) # baits with a coverage > 10 for lib i are stored
+        name <- names[i]
+        tmp <- list(Bait=vec)
+        mybiglist[[name]] <- tmp
+        print(names[i])
+        print(table(counts[,i]>10))
+    }
+    ##->let's select the libraries with more than 1000 Good Baits
+    GL <- which(sapply(mybiglist, sapply,length)>1000) ## list the "good" libraries 
+    ## Which baits overlap?
+    mysmalllist <- mybiglist[GL]
+    print(rapply(mysmalllist, length)) # number of baits for each library
+    myTab <- table(unlist(mysmalllist))# NUMBER OF LIBRARIES CAPTURED BY EACH BAIT
+    print(length(myTab[myTab==length(mysmalllist)]))# Number of baits in common to ALL libraries
+    ## -> Let's select baits good in AT LEAST 2 good libraries
+    ## Which are:
+    BAITS <- names(myTab[myTab>=2])
+}
 
-## Plot a heatmap of the "cool" baits
-NamesB <- counts0[,1]
-df <- counts0[-c(1,2)]
-mymat <- as.matrix(df)
-rownames(mymat) <- NamesB
+BaitsC1.1 <- FindBait(C1.1.baits)
 
-## Baits with at least a sum of coverage of 500 for all the libraries
-pdf("Fig_heatmap500.pdf",paper="a4")
+BaitsC1.2 <- FindBait(C1.2.baits)
 
-pheatmap(log10(mymat[rowSums(mymat)>500,]+0.1))
+BaitsC2 <- FindBait(C1.2.baits)
 
+BaitsC3.1 <- FindBait(C3.1.baits)
+
+BaitsC3.2 <- FindBait(C3.2.baits)
+
+## Baits obtained from ALL aligners
+BaitsTot <-c(BaitsC1.1,BaitsC1.2, BaitsC2, BaitsC3.1, BaitsC3.2)
+
+TabTot <- table(BaitsTot)
+
+## Questions: are the selected baits the same in all alignments?
+length(TabTot) == length(TabTot[TabTot==5])
+
+### -> How many baits do I select?
+length(TabTot[TabTot==5])
+
+#############################
+## Heatmaps of "good" baits##
+#############################
+
+## "Good" baits stored in BaitsTot
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Heatmap_GB_blatR1.pdf")
+adf <- as.data.frame(C1.1.baits)
+subdf <- adf[rownames(adf) %in% BaitsTot,] # select only the good baits
+pheatmap(log10(as.matrix(subdf)+0.1),show_rownames=F, main="Targeted positions, blat R1")
+dev.off()
+
+############
+## Check the coverage around these selected baits :
+############
+
+## Blat : M1
+## NB : we use the average value between R1 and R2 alignments
+M1.1 <- mytabcov(F1_R1,2)
+M1.1$Libraries <-substr(sub("_S.*.","",M1.1$Libraries),3,50)
+M1.2 <- mytabcov(F1_R2,2)
+M1.2$Libraries <-substr(sub("_S.*.","",M1.2$Libraries),3,50)
+
+M1 <- rbind(M1.1,M1.2,2)
+M1 <- aggregate(M1$Coverage ~ M1$Libraries + M1$Group, FUN=mean)
+M1$Alignment <- "Blat DNA"
+names(M1) <- c("Libraries", "Group", "Coverage", "Alignment")
+
+## Rsubread:align : M2
+M2 <- mytabcov(F2,2)
+M2$Libraries <- sub(".*align.","",sub("_S.*.","",M2$Libraries))
+M2$Alignment <- "Rsubread"
+names(M2) <- c("Libraries", "Group", "Coverage", "Alignment")
+
+## Blatx : M3
+M3.1 <- mytabcov(F3_R1,2)
+M3.1$Libraries <-substr(sub("_S.*.","",M3.1$Libraries),3,50)
+M3.2 <- mytabcov(F3_R2,2)
+M3.2$Libraries <-substr(sub("_S.*.","",M3.2$Libraries),3,50)
+
+M3 <- rbind(M3.1,M3.2)
+M3 <- aggregate(M3$Coverage ~ M3$Libraries + M3$Group, FUN=mean)
+M3$Alignment <- "Blat DNAX"
+names(M3) <- c("Libraries", "Group", "Coverage", "Alignment")
+
+##### ALL :
+Mtot <- rbind(M1, M2, M3)
+
+## Coverage per Mb
+Mtot$Coverage <- Mtot$Coverage * 1000000
+
+Mtot$Group <- factor(Mtot$Group, levels = c("Selected_baits","Genome ON target", "Genome 0 to 100bp from bait", "Genome 100 to 300bp from bait", "Genome 300 to 500bp from bait", "Genome on a contig with no bait", "Mitochondria", "Apicoplast"))
+
+pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/All_aligners_coverageGB.pdf", width=20)
+myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
+    geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
+    theme_minimal()+
+    labs(fill = "")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    scale_fill_manual(values=c("black","#990000", "#CC0000", "#FF0000", "#FF3366", "#FF6699", "darkgreen","darkblue"))+
+    ylab("Coverage per Mb for each type of region")+
+    scale_y_log10()+
+    facet_grid(Alignment ~ .)
+myplotAllCOV
 dev.off()

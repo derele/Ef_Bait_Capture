@@ -9,8 +9,51 @@ library(gridExtra)
 library("Biostrings")
 library(stringr)
 
+####################
+## Pre-requisite : ORDER the gff original file (was not done!!)
+####################
 
+file <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120.gff")
+
+file$toorder <- as.numeric(str_split_fixed(file$V1, "_",2)[,2])
+file <- with(file, file[order(toorder,V4),])                        
+file <- file[-10] # remove the column used to order
+
+## Then add a counter
+file$V9 <- paste(file$V9,"_", 1:nrow(file),sep="")
+
+## And create column for GTF format
+file$num <- file$V9
+file$V9 <- "gene_id"
+file$V10 <- file$V1
+file$V11 <- ";"
+file$V12 <- "bait_id"
+file$V13 <- file$num
+file <- file[-10]
+
+## Add the mitochondria and the apicoplast
+AM <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf")
+
+file <- (rbind(file,tail(AM,2)))
+
+## Export
+file$V10 <- paste0("\"",file$V10,"\"")
+file$V13 <- paste0("\"",file$V13,"\"")
+
+file$last <- with(file, paste(V9,V10, sep=" "))
+file$last2 <- with(file, paste(V11,V12,V13, sep=" "))
+file$LAST <- with(file, paste(last,last2, sep=""))
+
+file <- file[-c(9,10,11,12,13,14,15)]
+
+file$LAST <- gsub("Off_target", "OT", file$LAST)
+
+## Export
+write.table(x=file, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_Alice.gtf", sep="\t", col.names=FALSE, row.names=FALSE, quote = FALSE)
+
+####################
 ## PART I. Make a GTF that contains genomeoffbaits + mito + api + baits :
+####################
 
 ## load the Genome
 fastaFile <- readDNAStringSet("/SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_genome.fa")
@@ -19,7 +62,7 @@ sequence = paste(fastaFile)
 df <- data.frame(seq_name, sequence)
 
 ## load the baits
-baitstot <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_feature_counted.gtf")
+baitstot <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_Alice.gtf")
 
 ## !! Remove api and mito, back at the end!!
 baits <- baitstot[-c(nrow(baitstot),nrow(baitstot)-1),]
@@ -193,11 +236,11 @@ myDF[myDF$category %in% NA,]
 write.table(x=myDF, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP.gtf")
 
 
-myDF <- read.table(file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP.gtf")
+#myDF <- read.table(file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP.gtf")
 
 ############ GOOD SO FAR
 
-# table(myDF[myDF$V5-myDF$V4 <= 0,][17])
+table(myDF[myDF$V5-myDF$V4 <= 0,][17])
 #### NB : PROBLEMS FOR SEQUENCES OF LENGTH :
 # 201  202  203  601  602  603  604  605 1001 1002 1003 1004 1006 1007
 # 15   18   11    3    2    7    5    6    4    7    5    3    4    5
@@ -423,7 +466,9 @@ for (i in 1:nrow(myDF)) {
 table(myDF[myDF$V5-myDF$V4 <= 0,][17])
 
 # Save
-write.table(x=myDF, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP2.gtf")
+#write.table(x=myDF, file="/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP2.gtf")
+
+myDF <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_complete_TEMP2.gtf")
 
 ## Remove the "to remove"
 myDF <- myDF[!grepl("remove", myDF$distance_to_bait),]
@@ -437,19 +482,31 @@ myDF <- myDF[with(myDF, order(as.numeric(contig), V4)),]
 ## Erase bad columns
 myDFfinal <- myDF[-c(14:18)]
 
-## Add back the last 2 lines (apicoplast + mitocondria)
-
 ## Prepare my GTF file for export
-myDFfinal <- rbind(myDFfinal, GTFfile[c(nrow(GTFfile),nrow(GTFfile)-1),])
 
-##myDFfinal <- read.table("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_AND_offtarget_COMPLETE.gtf", sep="\t")
+## Add back the last 2 lines (apicoplast + mitocondria)
+myDFfinal <-  rbind(myDFfinal, GTFfile[c(nrow(GTFfile),nrow(GTFfile)-1),])
 
 # Check for NAs?
 sapply(myDFfinal, function(x) sum(is.na(x)))
 
-## Finalize my GTF file format
+## Which rows contain duplicated names in V13?
+library(data.table)
 
-head(myDFfinal)
+## Turn data.frame into a data.table
+dt <- data.table(myDFfinal,60)
+
+##  Get running count by ID and T
+dt[ , Index := 1:.N , by = "V13" ]
+
+## Add a counter to V13
+myDFfinal$new <- paste(myDFfinal$V13, dt$Index, sep="_")
+
+## Remove useless column
+myDFfinal <- myDFfinal[-13]
+names(myDFfinal) <- c(names(myDFfinal)[-13],"V13")
+
+## Finalize my GTF file format
 
 ## Troubleshooting : check when V5 - V4 < 100 (should be never)
 
@@ -459,6 +516,7 @@ diff <- myDFfinal$V5 - myDFfinal$V4
 table(diff[diff<0])
 
 head(myDFfinal)
+tail(myDFfinal)
 myDFfinal$V10 <- paste0("\"",myDFfinal$V10,"\"")
 myDFfinal$V13 <- paste0("\"",myDFfinal$V13,"\"")
 
