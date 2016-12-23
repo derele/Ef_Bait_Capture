@@ -2,18 +2,10 @@
 ##GENERAL bash code##
 #####################
 awk '{print $3}' MYbaits_Eimeria_V1.single120_feature_counted.gtf | head   #check a column
-ssh -Y alice@141.20.60.128 -t 'screen -x'   # Go to harriet
-zcat 2672Single_S17_R1_001.fastq.gz | head   # First few lines can be inspected with
-zcat 2672Single_S17_R1_001.fastq.gz | wc -l   # Number of lines in the (uncompressed) file
-# Browse through the file :
-# zless myreads.fastq.gz
-# Space to page-down, “b” to go back a page, and “q” to quit.
-#"/CAGGTT” will find the next occurrence of “CAGGTT” in the file.
-#“/^CAGTT” will find the next read which starts with CAGTT
-# add a counter to the end of the line of a gff file
-awk '{if($1==c) {i++} else {i=1} ;c=$1; print c " count " i}' MYbaits_Eimeria_V1.single120.gff | head -n 20
-# And save it in a new file
-awk '{if($1==c) {i++} else {i=1} ;c=$1; print $0 "_" i}' MYbaits_Eimeria_V1.single120.gff > MYbaits_Eimeria_V1.single120_feature_counted.gff
+
+## Prepare GFF file
+# add a counter to the end of the line of a gff file, and save it in a new file
+awk '{if($1==c) {i++} else {i=1} ;c=$1; print $0 "_" i}' MYbaits_Eimeria_V1.single120.gff > MYbaits_Eimeria_V1.single120_feature_counted_alice.gff
 most MYbaits_Eimeria_V1.single120_feature_counted.gff   # visualize
 mv filetemp filefinal   #change name
 
@@ -31,7 +23,7 @@ cp Alignments.Alignment_2672Si.featureCounts summaryFeatureCount_2672Si
 grep "Assigned" Alignments.Alignment_pattern.featureCounts >> summaryFeatureCount_pattern
 
 #fastx_quality_stats -i 2672Single_S17_R1_001.fastq.gz -o 2672Single_S17_R1_001.fastq.gz_stats.txt
-                    $ fastq_quality_boxplot_graph.sh -i bc54_stats.txt -o bc54_quality.png -t "My Library"
+              $ fastq_quality_boxplot_graph.sh -i bc54_stats.txt -o bc54_quality.png -t "My Library"
                       $ fastx_nucleotide_distribution_graph.sh -i bc54_stats.txt -o bc54_nuc.png -t "My Library"
 
 python --version # check the version of python
@@ -82,18 +74,9 @@ cd /SAN/Alices_sandpit/sequencing_data_dereplicated/
 
 time find What_I_want | parallel blat Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDna.psl
 
-## running
-blat ../../Efal_mtapi.fasta.fa ../../2807Digested_S3_R2_001.fastq.unique.fasta.fa -t=dnax -q=dnax -minIdentity=80 -dots=10000 2807Digested_S3_R2_001.fastq.unique.fasta.fa_blatDnax.psl
-blat ../../Efal_mtapi.fasta.fa ../../2807Single_S1_R2_001.fastq.unique.fasta.fa -t=dnax -q=dnax -minIdentity=80 -dots=10000 2807Single_S1_R2_001.fastq.unique.fasta.fa_blatDnax.psl
+#or
 
-
-time find ../../2808Si*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
-time find ../../2808Si*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
-
-time find find ../../2919S*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dna -q=dna -minIdentity=80 -dots=10000 {}_blatDna.psl
-time find find ../../2919S*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 {}_blatDnax.psl
-
-
+time find What_I_want | parallel blat Efal_mtapi.fasta.fa {} -t=dnax -q=dnax -minIdentity=80 -dots=10000 All_alignments_Blat/Blat_Dna_Dnax/{}_blatDnax.psl
 
 ########
 ## Transform pls > bed > sam/bam:
@@ -102,10 +85,10 @@ time find find ../../2919S*fa | parallel blat ../../Efal_mtapi.fasta.fa {} -t=dn
 for file in what_I_Want; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
 ## example
-for file in 2812*psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
+for file in *psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
 ## NB error in the sams files : EfaB_7 replace reconstructed_apicoplast!!
-for i in  *.sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
+for i in  2812*.sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
 
 ## --> ALIGNER TO TEST : Bowtie, Bwa at first
 ## Compare the TIME needed to align (i) and the RESULTS (ii)
@@ -124,69 +107,8 @@ zcat file.unique.gz | echo $((`wc -l`/4)) > Nt
 # Ratio
 Nm/Nt
 
-##########################
-
-# 2848Si R1 Dnax
-cat 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDnax.sam | cut -f1 | sort | uniq | wc -l # number of reads in the alignment
-zcat ../../2848Single_S18_R1_001.fastq.unique.gz | echo $((`wc -l`/4))
-### -> 38426 / 6460398 = 0.59%
-
-# 2848Si R2 Dnax
-cat 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDnax.sam | cut -f1 | sort | uniq | wc -l # number of reads in the alignment
-zcat ../../2848Single_S18_R2_001.fastq.unique.gz | echo $((`wc -l`/4))
-### -> 39109 / 6460398 = 0.61%
-
-############################
-# 2848Si R1 Dna
-cat 2848Single_S18_R1_001.fastq.unique.fasta.fa_blatDna.sam | cut -f1 | sort | uniq | wc -l # number of reads in the alignment
-zcat ../../2848Single_S18_R1_001.fastq.unique.gz | echo $((`wc -l`/4))
-### -> 20309 / 6460398 = 0.31%
-
-# 2848Si R2 Dna
-cat 2848Single_S18_R2_001.fastq.unique.fasta.fa_blatDna.sam | cut -f1 | sort | uniq | wc -l # number of reads in the alignment
-zcat ../../2848Single_S18_R2_001.fastq.unique.gz | echo $((`wc -l`/4))
-### -> 20658 / 6460398 =  0,32%
-############################
-# 2808Do R1 Dna
-cat 2808Double_S5_R1_001.fastq.unique.fasta.fa_blatDna.sam | cut -f1 | sort | uniq | wc -l # number of reads in the alignment
-zcat ../../2808Double_S5_R1_001.fastq.unique.gz | echo $((`wc -l`/4))
-### -> 545247 / 6801343 = 8,02%
-
-# 2808Do R2 Dna
-cat 2808Double_S5_R2_001.fastq.unique.fasta.fa_blatDna.sam | cut -f1 | sort | uniq | wc -l # number of reads in the alignment
-zcat ../../2808Double_S5_R2_001.fastq.unique.gz | echo $((`wc -l`/4))
-### -> 531882 / 6801343 = 7,82%
-
-
-
-
-# step 2.4 : combine the files R1 and R2 with samtools fixmate
-# samtools fixmate [-rpc] [-O format] in.nameSrt.bam out.bam
-
-# Fill in mate coordinates, ISIZE and mate related flags from a name-sorted alignment.
-
-# OPTIONS:
-
-# -r
-# Remove secondary and unmapped reads.
-
-# -p
-# Disable FR proper pair check.
-
-# -c
-# Add template cigar ct tag.
-
-# -O FORMAT
-# Write the final output as sam, bam, or cram.
-
-# By default, samtools tries to select a format based on the output filename extension; if output is to standard output or no format can be deduced, bam is selected.
-
-
-
-
-
 ##########################################
-## part 2 : de novo metagenome assembly ##
+## part 3 : de novo metagenome assembly ##
 ##########################################
 
 # step 1 : create the assembly with SPAdes
@@ -205,25 +127,8 @@ scp De_Novo_Assembly/SPAdes_metagenomic_assembly/Results_SPAdes_f9Ann/scaffolds.
  
 # step 3 : add an identifier from the library to all lines with >
 awk '/>/ {$0=$0 "_2672Si"}1' scaf_2672Si.fa > scaf_2672Si.fasta
-awk '/>/ {$0=$0 "_2807Di"}1' scaf_2807Di.fa > scaf_2807Di.fasta
-awk '/>/ {$0=$0 "_2807Do"}1' scaf_2807Do.fa > scaf_2807Do.fasta
-awk '/>/ {$0=$0 "_2807Si"}1' scaf_2807Si.fa > scaf_2807Si.fasta
-awk '/>/ {$0=$0 "_2808Do"}1' scaf_2808Do.fa > scaf_2808Do.fasta
-awk '/>/ {$0=$0 "_2808Si"}1' scaf_2808Si.fa > scaf_2808Si.fasta
-awk '/>/ {$0=$0 "_2809Di"}1' scaf_2809Di.fa > scaf_2809Di.fasta
-awk '/>/ {$0=$0 "_2809Do"}1' scaf_2809Do.fa > scaf_2809Do.fasta
-awk '/>/ {$0=$0 "_2809Si"}1' scaf_2809Si.fa > scaf_2809Si.fasta
-awk '/>/ {$0=$0 "_2811Do"}1' scaf_2811Do.fa > scaf_2811Do.fasta
-awk '/>/ {$0=$0 "_2812Do"}1' scaf_2812Do.fa > scaf_2812Do.fasta
-awk '/>/ {$0=$0 "_2812Si"}1' scaf_2812Si.fa > scaf_2812Si.fasta
-awk '/>/ {$0=$0 "_2848Si"}1' scaf_2848Si.fa > scaf_2848Si.fasta
-awk '/>/ {$0=$0 "_2919Di"}1' scaf_2919Di.fa > scaf_2919Di.fasta
-awk '/>/ {$0=$0 "_2919Si"}1' scaf_2919Si.fa > scaf_2919Si.fasta
-awk '/>/ {$0=$0 "_2TRAnn"}1' scaf_2TRAnn.fa > scaf_2TRAnn.fasta
-awk '/>/ {$0=$0 "_95Anna"}1' scaf_95Anna.fa > scaf_95Anna.fasta
-awk '/>/ {$0=$0 "_f9Ann"}1' scaf_f9Ann.fa  > scaf_f9Ann.fasta
-awk '/>/ {$0=$0 "_Undete"}1' scaf_Undete.fa > scaf_Undete.fasta
-                   
+#etc. NB for later : to automatise
+
 # step 4 : create one big file with all the scaffolds
 cat *fasta > allscaf.fa
 
@@ -238,8 +143,118 @@ makeblastdb -in SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allsca
 ## Maximum file size: 1000000000B
 ## Adding sequences from FASTA; added 18903594 sequences in 841.087 seconds.
 
+###################
 # step 6 : tblastn with Efalciprot as query and the metagenome assemblies as reference
 ## 11 = BLAST archive format (ASN.1)
-tblastn -query /SAN/db/blastdb/Eimeria_falciformis/proteins.fa -db /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastdb_all19scaf -out /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/tblastn/blast_19scaf -outfmt 11 -num_threads 20
-## segmentation fault
 tblastn -query /SAN/db/blastdb/Eimeria_falciformis/proteins.fa -db /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastdb_all19scaf -out /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/tblastn/blast_19scaf -outfmt 11
+
+## Try with BLAST 6 format
+tblastn -query /SAN/db/blastdb/Eimeria_falciformis/proteins.fa -db /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastdb_all19scaf -out /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/tblastn/blast_19scaf.b6 -outfmt 6
+
+## Or transform it in outfmt 6 with blastformatter
+blast_formatter -archive /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/tblastn/blast_19scaf -outfmt 6 -out /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/tblastn/blast_19scaf_transfo.b6
+
+# With 80% similarities, how many lines?
+## lib names stored in lib.txt
+
+# grep for each library the number of hits
+while read p; do
+    awk '$3>80' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/tblastn/blast_19scaf_transfo.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/result.txt
+
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/result2.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/result.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/result2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result.txt
+
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/result3.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/result3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_tblastn_Efalci.txt
+
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_tblastn_Efalci.txt
+
+
+###################
+# step 7 : blastn with /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa as query and the metagenome assemblies as reference
+blastn -query /SAN/Alices_sandpit/sequencing_data_dereplicated/Efal_mtapi.fasta.fa -db /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastdb_all19scaf -out /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf.b6 -outfmt 6
+
+# With 80% similarities, how many lines?
+## lib names stored in lib.txt
+
+# grep for each library the number of hits
+while read p; do
+    awk '$3>80' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Efalci.txt
+
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Efalci.txt
+
+
+###################
+# step 8 : blastn with mus musculus genome (Reference genome: Mus musculus (assembly GRCm38.p5)) as query and the metagenome assemblies as reference
+wget "ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.25_GRCm38.p5/GCF_000001635.25_GRCm38.p5_genomic.fna.gz"
+zcat GCF_000001635.25_GRCm38.p5_genomic.fna.gz > GCF_000001635.25_GRCm38.p5_genomic.fna
+
+blastn -query /SAN/Alices_sandpit/GCF_000001635.25_GRCm38.p5_genomic.fna -db /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastdb_all19scaf -out /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf_musmusculus.b6 -outfmt 6
+
+# Error: NCBI C++ Exception:
+# T0 "/home/amu/src/ncbi-blast+/ncbi-blast+-git/c++/src/corelib/ncbiobj.cpp", line 977: Critical: ncbi::CObject::ThrowNullPointerException() - Attempt to access NULL pointer.
+# Stack trace:
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CStackTraceImpl::CStackTraceImpl() offset=0x5B
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CStackTrace::CStackTrace(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) offset=0x1F
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CException::x_GetStackTrace() offset=0x94
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CException::SetSeverity(ncbi::EDiagSev) offset=0x64
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CObject::ThrowNullPointerException() offset=0xAF
+# /usr/lib/ncbi-blast+/libxblast.so ???:0 ncbi::blast::CBlastTracebackSearch::Run() offset=0xCA2
+# /usr/lib/ncbi-blast+/libxblast.so ???:0 ncbi::blast::CLocalBlast::Run() offset=0x1422
+# blastn ???:0 CBlastnApp::Run() offset=0x15FD
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CNcbiApplication::x_TryMain(ncbi::EAppDiagStream, char const*, int*, bool*) offset=0x133
+# /usr/lib/ncbi-blast+/libxncbi.so ???:0 ncbi::CNcbiApplication::AppMain(int, char const* const*, char const* const*, ncbi::EAppDiagStream, char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) offset=0x6AD
+# blastn ???:0 main offset=0x66
+# /lib/x86_64-linux-gnu/libc.so.6 ???:0 __libc_start_main offset=0xF1
+# blastn ???:0 _start offset=0x29
+
+# With 80% similarities, how many lines?
+## lib names stored in lib.txt
+
+# grep for each library the number of hits
+while read p; do
+    awk '$3>80' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf_musmusculus.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt
+
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt

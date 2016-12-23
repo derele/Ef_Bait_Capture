@@ -473,7 +473,7 @@ TabTot <- table(BaitsTot)
 length(TabTot) == length(TabTot[TabTot==5])
 
 ### -> How many baits do I select?
-length(TabTot[TabTot==5])
+length(TabTot[TabTot>=5])
 
 #############################
 ## Heatmaps of "good" baits##
