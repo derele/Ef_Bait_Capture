@@ -539,3 +539,32 @@ myplotAllCOV <- ggplot(Mtot, aes(x=Libraries, y=Coverage, fill=Group))+
     facet_grid(Alignment ~ .)
 myplotAllCOV
 dev.off()
+
+
+
+
+########## DE NOVO METAGENOME ASSEMBLY ##########
+T1 <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_tblastn_Efalci.txt", header=T)
+
+T2 <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Efalci.txt", header=T)
+
+# T3 <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt", header=T)
+
+T <- cbind(T1[-2], T2$percentmatch)
+names(T) <- c("Libraries", "N scaffolds", "tblastn E. falci","blastn E. falci")
+
+T <- melt(T, id=c("Libraries","N scaffolds"))
+
+png("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Results_80_plot.png", width=800, height=800)
+ggplot(T, aes(x=Libraries, y=value, fill=variable))+
+    geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
+    theme_minimal()+
+    labs(fill = "")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size=30),
+          axis.text.y = element_text(size=30),
+          axis.title = element_text(size=30),
+          legend.text= element_text(size=30))+
+    ylab("Percentage of scaffolds > 80% similarities to reference")
+dev.off() 
+
+

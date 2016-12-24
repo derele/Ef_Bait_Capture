@@ -88,7 +88,7 @@ for file in what_I_Want; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBam
 for file in *psl; do sh /home/alice/Ef_Bait_Capture/Bashprograms/PsltoBamAlice.sh $file; done
 
 ## NB error in the sams files : EfaB_7 replace reconstructed_apicoplast!!
-for i in  2812*.sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
+for i in  *.sam; do sed -i.bak 's/\<EfaB_7\>/reconstructed_apicoplast/g' $i; done
 
 ## --> ALIGNER TO TEST : Bowtie, Bwa at first
 ## Compare the TIME needed to align (i) and the RESULTS (ii)
@@ -258,3 +258,103 @@ paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/B
 
 # Add headers
 sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt
+
+
+# With 80% similarities, how many lines?
+## lib names stored in lib.txt
+
+# grep for each library the number of hits
+while read p; do
+    awk '$3>80' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf_musmusculus.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt
+
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt
+
+######## With 90% similarities?
+# grep for each library the number of hits
+while read p; do
+    awk '$3>90' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf_musmusculus.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu_90.txt
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu_90.txt
+
+
+
+# grep for each library the number of hits
+while read p; do
+    awk '$3>90' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_90.txt
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_90.txt
+
+
+######## With 99% similarities?
+# grep for each library the number of hits
+while read p; do
+    awk '$3>99' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf_musmusculus.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu_99.txt
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu_99.txt
+
+
+# grep for each library the number of hits
+while read p; do
+    awk '$3>99' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf.b6 | grep "$p" | wc -l
+    done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt
+# grep pour each library the number of sequences in the metagenome assembly
+while read p; do
+    cat /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/SPAdes_metagenomic_assembly/All_scaffold_fasta_alignments/allscaf.fa | grep ">" | grep "$p" | wc -l
+done < /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/lib.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp2.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt
+# Divide
+awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt
+# All in one
+paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_99.txt
+# Add headers
+sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_99.txt
