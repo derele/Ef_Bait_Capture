@@ -357,4 +357,4 @@ awk '$3 != 0 { print $2/$3*100 }' /SAN/Alices_sandpit/sequencing_data_dereplicat
 # All in one
 paste -d ' ' /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Temp.txt /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/temp3.txt > /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_99.txt
 # Add headers
-sed -i 1i"lib match>80 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_99.txt
+sed -i 1i"lib match>99 tot percentmatch" /SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_99.txt
