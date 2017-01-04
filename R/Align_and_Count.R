@@ -409,15 +409,6 @@ dev.off()
 ### Q°1 : how many different baits captured some reads?
 library(stringr)
 
-## To erase?
-## Ex 1 : F1_R1
-#DfBaits <- as.data.frame(as.table(F1_R1$counts))
-#names(DfBaits) <- c("region","libraries","coverage")
-#DfBaits$libraries <- substr(DfBaits$libraries,3,8)
-# Define a type of region (apico, mito, EfaB=bait, OT=Off Target)
-#DfBaits$type <- str_split_fixed(DfBaits$region, "_",3)[,1]
-
-
 ## For later heatmaps of the baits vs a heatmap
 C1.1 <- F1_R1$counts
 colnames(C1.1) <- substr(colnames(C1.1),3,8)
@@ -487,23 +478,36 @@ length(TabTot[TabTot>=5])
 ## Stored in :
 BaitsTot <- names(TabTot[TabTot==5])
 
+########## Which contigs contain the baits chosen? #########
+a <- sapply(BaitsTot,function(x) strsplit(x,"_"))
+a <- data.frame(table(sapply(a,function(x) x[2])))
+
+ggplot(data=a, aes(x=Freq))+
+    geom_histogram(aes(fill = ..count..), binwidth=1)+
+    scale_fill_gradient("Count", low = "green", high = "red")+
+    theme_minimal()+
+    labs(title = "Histogram of the contigs containing chosen baits")+
+    theme(axis.text = element_text(size=20),
+          title = element_text(size=20))+
+    annotate("text", x = 100, y = 20, size = 10, label = paste("N = ",nrow(a)))
+
 #############################
 ## Heatmaps of "good" baits##
 #############################
 
 ## "Good" baits stored in BaitsTot
-pdf("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Heatmap_GB_blatR1.pdf")
+png("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Heatmap_GB.png")
 
-adf <- as.data.frame(C1.1.baits)
+adf <- as.data.frame(C1.2.baits)
 subdf <- adf[rownames(adf) %in% BaitsTot,] # select only the good baits
-pheatmap(log10(as.matrix(subdf)+0.1),show_rownames=F, main="Targeted positions, blat R1")
+pheatmap(log10(as.matrix(subdf)+0.1),show_rownames=F)
 
 dev.off()
 
 ############## Are there baits with a really high coverage? ##############
 ## Distribution of coverage among baits : 
-png("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Coverage_among_baits_Rsubreadalign.png")
-adf <- as.data.frame(C2.baits)
+#png("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_All/Coverage_among_baits_Rsubreadalign.png")
+adf <- as.data.frame(C1.2.baits)
 subdf <- adf[rownames(adf) %in% BaitsTot,] # select only the good baits
 subdf$Baits <-rownames(subdf) # prepare data frame
 subdf <- melt(subdf, id="Baits")
@@ -518,23 +522,74 @@ ggplot(data= subdf, aes(x=variable, y=value, fill=variable))+
           title = element_text(size=10),
           legend.position= "none")+
     scale_y_continuous(breaks=seq(0,900,50))
-dev.off()
+#dev.off()
+
+######## Mean & median of coverage of the selected baits?
+med <- aggregate(value~variable, data=subdf, median)
+mea <- round(aggregate(value~variable, data=subdf, mean)[2],0)
+Meda <- cbind(med, mea)
+names(Meda) <- c("Libraries", "coverage median", "coverage mean")
+Meda
 
 
 
+#################################################
 ########## DE NOVO METAGENOME ASSEMBLY ##########
+#################################################
+
+Tblastn <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/blastn/blast_19scaf.b6")
+
+head(Tblastn,10)
+
+names(Tblastn) <- c("Query label","Target label","Percent identity","Alignment length",
+                    "Number of mismatches","Number of gap opens", "Start position in query",
+                    "End position in query","Start position in target",
+                    "End position in target","E-value","Bit score")
+
+## Select only the >80% similarities
+Tblastn80 <- Tblastn[Tblastn$'Percent identity' >= 80, ]
+
+## By library, by Query label, find overlap
+
+## 1. creating GRanges objects
+source("https://bioconductor.org/biocLite.R")
+biocLite("GenomicRanges")
+library(GenomicRanges)
+
+## By library
+Tblastn80[Tblastn80$'la ou ya la library' %in% name1, ]
+
+
+head(Tblastn80)
+
+gr <- GRanges(seqnames = Tblastn80$'Query label',
+              ranges = IRanges(Tblastn80$'Start position in query', Tblastn80$'End position in query')         
+head(gr)
+
+
+## The reduce will align the ranges and merge overlapping ranges to produce a simplified set.
+
+## and THEN mesure the length :)
+
+# Length of correctly mapped scaffolds 
+
+
+
+
 T1 <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_tblastn_Efalci.txt", header=T)
 
 T2 <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Efalci.txt", header=T)
 
-# T3 <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Result_blastn_Mmuscu.txt", header=T)
+head(T1)
+
 
 T <- cbind(T1[-2], T2$percentmatch)
 names(T) <- c("Libraries", "N scaffolds", "tblastn E. falci","blastn E. falci")
 
 T <- melt(T, id=c("Libraries","N scaffolds"))
 
-png("/SAN/Alices_sandpit/sequencing_data_dereplicated/De_Novo_Assembly/Blast/Results_80_plot.png", width=800, height=800)
+head(T)
+
 ggplot(T, aes(x=Libraries, y=value, fill=variable))+
     geom_bar(stat="identity", position=position_dodge(width=0.7), width=0.7)+
     theme_minimal()+
@@ -544,18 +599,3 @@ ggplot(T, aes(x=Libraries, y=value, fill=variable))+
           axis.title = element_text(size=30),
           legend.text= element_text(size=30))+
     ylab("Percentage of scaffolds > 80% similarities to reference")
-dev.off() 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
