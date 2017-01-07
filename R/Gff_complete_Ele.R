@@ -6,13 +6,15 @@ library(Biostrings)
 ## for a good intro see
 ## http://genomicsclass.github.io/book/pages/iranges_granges.html
 
-gff <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_Alice.gtf")
-## seqinfo: 242 sequences from an unspecified genome; no seqlengths
+gff <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_Alice2.gtf")
+
+## seqinfo: 244 sequences from an unspecified genome; no seqlengths
 ## you need to fix this to get the ranges up to the end of contigs
 ## best just readFastq and add the width (both bioc jargon ;-) to the
 ## gff
 EfG <- readDNAStringSet("/SAN/Alices_sandpit/Efal_genome.fa")
 
+## PB HERE
 seqlengths(seqinfo(gff)) <- width(EfG[seqnames(seqinfo(gff))])
 isCircular(seqinfo(gff)) <- rep(FALSE, length(seqinfo(gff)))
 genome(seqinfo(gff)) <- "E.falciformis"
@@ -31,7 +33,7 @@ add.gff.flanks <- function (gff, len, add){
     c(gff, flanking.gff[-from(OL)])
 }
 
-len.list <- c(120, 200, 400)
+len.list <- c(120, 120, 120)
 
 gff.imputed <- gff
 elementMetadata(gff.imputed)$bait_id <- paste(elementMetadata(gff.imputed)$bait_id,
@@ -44,5 +46,6 @@ for(i in seq_along(len.list)){
 
 table(gsub(".*_(\\d)", "\\1", elementMetadata(gff.imputed)$bait_id))
 
+# export.gff(gff.imputed, "/SAN/Alices_sandpit/MYbaits_Eimeria_IRanges_IMP.gtf")
 
-export.gff(gff.imputed, "/SAN/Alices_sandpit/MYbaits_Eimeria_IRanges_IMP.gtf")
+export.gff(gff.imputed, "/SAN/Alices_sandpit/MYbaits_Eimeria_IRanges_IMP_120.gtf")
