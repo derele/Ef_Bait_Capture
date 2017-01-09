@@ -28,7 +28,8 @@ names(blastn) <- bl.names
 names(tblastn) <- bl.names
 
 ## Choose now the best hits (keep the first line when duplicates):
-blastn <- blastn [!duplicated(B[,c("Query label","Target label")]),]
+blastn <- blastn [!duplicated(blastn[,c("Query label","Target label")]),]
+tblastn <- tblastn [!duplicated(tblastn[,c("Query label","Target label")]),]
 
 ## Percentage similarities wanted:
 X <- 80
@@ -37,6 +38,7 @@ X <- 80
 blastn <- blastn[blastn$'Percent identity' >= X, ]
 tblastn <- tblastn[tblastn$'Percent identity' >= X, ]
 
+######### Length of the alignment showing >X% identity:
 ## Apply for all libraries
 cov.sums <- lapply(lib, function (x) {
     bn <- blastn[grep(x, blastn$'Target label'), ]
@@ -56,7 +58,6 @@ cov.sums <- lapply(lib, function (x) {
 })
 
 names(cov.sums) <- lib
-
 cov.sums <- melt(cov.sums)
 
 ggplot(cov.sums, aes(x=L1, y=value, fill=L2))+
@@ -64,12 +65,13 @@ ggplot(cov.sums, aes(x=L1, y=value, fill=L2))+
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10))+
     labs(title = "Length of the alignment showing >X% identity")
 
-## Proportion of the "baits parts" covered:
-# gtf <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_IRanges_IMP.gtf") pb to find?
-gtf <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_V1.single120_Alice.gtf")
-
-## Remove first apicoplast and mitochondria
-gtf <- gtf[!grepl("mito|apico", gtf$bait_id),]
+######### Proportion of the "baits parts" covered:
+gtf <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_IRanges_IMP_120.gtf")
+## Different flanking positions in baits + 120 +120 +120
+gtf0 <- gtf[(substr(gtf$bait_id, nchar(gtf$bait_id),nchar(gtf$bait_id))) == "0"]
+gtf1 <- gtf[(substr(gtf$bait_id, nchar(gtf$bait_id),nchar(gtf$bait_id))) == "1"]
+gtf2 <- gtf[(substr(gtf$bait_id, nchar(gtf$bait_id),nchar(gtf$bait_id))) == "2"]
+gtf3 <- gtf[(substr(gtf$bait_id, nchar(gtf$bait_id),nchar(gtf$bait_id))) == "3"]
 
 ## Apply for all libraries
 cov.baits <- lapply(lib, function (x) {
@@ -81,21 +83,29 @@ cov.baits <- lapply(lib, function (x) {
     ## Reduce align the ranges and merge overlapping ranges to produce
     ## a simplified set:
     red <- reduce(gr)
-    ## Extracts the elements in the query that overlap at least one
-    ## element in the subject between gtf and red
-    ol <- intersect(gtf,red)
+    ## Extracts the intersections between gtf and red
+    ol0 <- intersect(gtf0,red)
+    ol1 <- intersect(gtf1,red)
+    ol2 <- intersect(gtf2,red)
+    ol3 <- intersect(gtf3,red)
     ## Proportion of the alignment along the baits by the total length of the baits    
-    b.b <- sum(width(reduce(ol)))/sum(width(gtf))*100
-    list(b.b)
+    b.b0 <- sum(width(reduce(ol0)))/sum(width(gtf0))*100
+    b.b1 <- sum(width(reduce(ol1)))/sum(width(gtf1))*100
+    b.b2 <- sum(width(reduce(ol2)))/sum(width(gtf2))*100
+    b.b3 <- sum(width(reduce(ol3)))/sum(width(gtf3))*100
+    list(b.b0, b.b1, b.b2, b.b3)
 })
 
 names(cov.baits) <- lib
-
 cov.baits <- melt(cov.baits)
 
-ggplot(cov.baits, aes(x=L1, y=value))+
-    geom_bar(stat="identity")+
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10))
+cov.baits$L2 <- as.factor(cov.baits$L2)
+levels(cov.baits$L2) <- c("on target", "distant of 1 bait", "distant of 2 baits", "distant of 3 baits")
 
+ggplot(cov.baits, aes(x=L1, y=value, fill=as.factor(L2)))+
+    geom_bar(stat="identity", position="dodge")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10))+
+    scale_fill_manual(values=c("#330000", "#990000", "#FF6666", "#FF9999"))+
+    theme_minimal()
 
 
