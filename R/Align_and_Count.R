@@ -9,6 +9,8 @@ library(ggthemes)
 library(pheatmap)
 library(gridExtra)
 library("Biostrings")
+library(rtracklayer)
+library(Biostrings)
 ########################
 
 ## Import the total number of sequences per libraries
@@ -241,8 +243,6 @@ library(stringr)
 FindBait <- function(FC, isblat){
     ## Keep only the baits
     X <- FC$counts
-    X <- X[-(grepl("mito", rownames(C1.1), ignore.case = T)),]
-    X <- X[-(grepl("mito", rownames(C1.1), ignore.case = T)),]
     X <- X[substr(rownames(X), nchar(rownames(X)), nchar(rownames(X)))==0,]
     if (isblat==TRUE) {
         colnames(X) <- substr(colnames(X),3,8)
@@ -289,7 +289,7 @@ length(TabTot) == length(TabTot[TabTot==5])
 ### -> How many baits do I select?
 length(TabTot[TabTot>=5])
 ## Stored in :
-BaitsTot <- names(TabTot[TabTot==5])
+BaitsTot <- names(TabTot[TabTot>=5])
           
 ########## Which contigs contain the baits chosen? #########
 a <- sapply(BaitsTot,function(x) strsplit(x,"_"))
@@ -312,7 +312,6 @@ ggplot(data=a, aes(x=Freq))+
 adf <- as.data.frame(C1.2.baits)
 subdf <- adf[rownames(adf) %in% BaitsTot,] # select only the good baits
 pheatmap(log10(as.matrix(subdf)+0.1),show_rownames=F)
-
 
 ############## Are there baits with a really high coverage? ##############
 ## Distribution of coverage among baits : 
@@ -338,3 +337,32 @@ mea <- round(aggregate(value~variable, data=subdf, mean)[2],0)
 Meda <- cbind(med, mea)
 names(Meda) <- c("Libraries", "coverage median", "coverage mean")
 Meda
+
+###### Extraction of a gtf file of the chosen baits :
+gtf_baits <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_IRanges_IMP_120_mitoapi.gtf")
+
+chosen_baits <- gtf_baits[gtf_baits$bait_id %in% BaitsTot]
+
+#export.gff(chosen_baits, "/SAN/Alices_sandpit/MYbaits_Eimeria_Chosen_Baits_6100.gtf")
+
+chosen_baits <- import.gff("/SAN/Alices_sandpit/MYbaits_Eimeria_Chosen_Baits_6100.gtf")
+## Distance between baits
+Distances <- as.data.frame(distanceToNearest(chosen_baits))
+Distances$group <- "Chosen baits"
+## How many contigs have only 1 bait chosen : 23
+length(names(table(chosen_baits$gene_id)[table(chosen_baits$gene_id)==1]))
+
+Distances$size <- "< 120bp"
+Distances[Distances$distance >120,]$size <- "> 120bp"
+
+## And the others :
+median.quartile <- function(x){
+    out <- quantile(x, probs = c(0.25,0.5,0.75))
+    names(out) <- c("ymin","y","ymax")
+    return(out)
+}
+
+ggplot(Distances, aes(y=log10(distance+1), x=group))+
+    geom_violin()+
+    geom_jitter(height = 0, alpha=.5, aes(color=size))+
+    stat_summary(fun.y=median.quartile,geom='point', size=30, pch=95)
