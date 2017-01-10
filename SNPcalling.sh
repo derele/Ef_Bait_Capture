@@ -30,3 +30,13 @@ for file in *sorted.bam; do samtools mpileup -g -f /SAN/Alices_sandpit/Efal_geno
 for file in *bcf; do bcftools call -c -v $file > $file.vcf; done
 
 
+## First easy pre analyses
+ls *.vcf | while read file
+do
+    echo $file  >> SNPcounting.txt
+    grep -v "^#" $file | wc -l >> SNPcounting2.txt
+done
+
+paste SNPcounting.txt SNPcounting2.txt > SNPcountingtemp.txt
+mv SNPcountingtemp.txt SNPcounting.txt
+rm SNPcounting2.txt

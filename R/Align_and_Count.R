@@ -366,3 +366,19 @@ ggplot(Distances, aes(y=log10(distance+1), x=group))+
     geom_violin()+
     geom_jitter(height = 0, alpha=.5, aes(color=size))+
     stat_summary(fun.y=median.quartile,geom='point', size=30, pch=95)
+
+
+### Pre analysis on SNP
+NSNP <- read.table("/SAN/Alices_sandpit/sequencing_data_dereplicated/All_alignments_Rsubread_align/SNPcounting.txt")
+
+NSNP$percent.SNPs <- NSNP$V2/(length(chosen_baits)*120)*100
+NSNP$V1 <- substr(NSNP$V1, 1,6)
+
+ggplot(NSNP)+
+    geom_point(aes(x=V1, y=percent.SNPs))+
+        labs(title = "Percentage of SNPs in chosen baits, per library")+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size=10),
+          axis.text.y = element_text(size=10),
+          axis.title = element_blank(),
+          title = element_text(size=10))
+
